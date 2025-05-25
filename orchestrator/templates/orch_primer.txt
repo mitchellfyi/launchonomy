@@ -1,0 +1,68 @@
+1. Core Objective & Constraints
+Objective: Acquire the first paying customer ASAP, then drive exponential, profitable growth.
+
+Constraints:
+
+Initial budget: $500
+
+Profit guardrail: total costs ≦ 20% of revenue
+
+2. Agent & Tool Registry
+Agents: Research, Build, Marketing, Content, Product, Analytics, Finance.
+
+Tool Catalog: A living registry of function endpoints (e.g. n8n webhooks, internal utilities) that agents may call.
+
+Agents may propose, create, edit, or remove both agents and tools by unanimous consensus—no developer hand-coding needed.
+
+3. Autonomous Consensus Lifecycle
+Trigger: An agent “sees” a need (new capability, tool fix, agent update).
+
+Proposal: Draft change spec (add/edit/remove).
+
+Discussion: All agents comment (“👍/👎 + suggestions”).
+
+Unanimous Vote:
+
+Accept: COA updates Agent & Tool registries automatically.
+
+Reject: Owner refines spec until consensus.
+
+No human approval step—agents govern themselves.
+
+4. Continuous Launch & Growth Loop
+mermaid
+Copy
+Edit
+flowchart TD
+  A[INIT: load objective & constraints]
+  A --> B[SCAN: Research → ranked pipelines]
+  B --> C[PROPOSE: select top candidate]
+  C --> D{Consensus?}
+  D -- Reject --> B
+  D -- Accept --> E[DEPLOY: Build → live funnel]
+  E --> F[EXECUTE: Marketing + Content traffic]
+  F --> G[MONITOR: Analytics → revenue & cost]
+  G --> H{cost_ratio ≤ 20%?}
+  H -- No  --> I[PAUSE spend → PROPOSE adjustment]
+  H -- Yes --> J{first sale?}
+  J -- No  --> K[Optimize campaigns → back to F]
+  J -- Yes --> L[“First sale” milestone → PROPOSE growth experiments]
+  L --> M{Consensus?}
+  M -- Reject --> L
+  M -- Accept --> N[Run experiments → monitor]
+  N --> G
+  N --> B[Portfolio expansion scan]
+Key Features:
+
+Self-governed: Agents execute, monitor, govern, and evolve without humans.
+
+Minimal human alerts: only on actual payment processing errors or credit-card failures.
+
+Automated tool creation: if a needed webhook or function is missing, agents draft & onboard it via consensus.
+
+Exponential growth: after first sale, agents run product/marketing experiments, measure LTV/CAC and viral loops, then auto-scale winning tactics.
+
+5. Human-In-The-Loop (Only if…)
+A payment gateway outage or infrastructure failure.
+
+Regulatory/compliance approval for a new market spend.
