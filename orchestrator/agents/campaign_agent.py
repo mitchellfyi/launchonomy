@@ -98,7 +98,7 @@ Always prioritize getting the first paying customer, then focus on scalable, pro
                 raise ValueError("Product details required for campaign execution")
             
             # Get available marketing tools
-            available_tools = self._get_available_campaign_tools()
+            available_tools = await self._get_available_campaign_tools()
             
             if campaign_type == "optimization":
                 # Run optimization workflow
@@ -237,12 +237,12 @@ Always prioritize getting the first paying customer, then focus on scalable, pro
             confidence=0.85
         )
     
-    def _get_available_campaign_tools(self) -> Dict[str, Any]:
+    async def _get_available_campaign_tools(self) -> Dict[str, Any]:
         """Get available tools for campaign management."""
         available_tools = {}
         
         for tool_name in self.REQUIRED_TOOLS + self.OPTIONAL_TOOLS:
-            tool_spec = self._get_tool_from_registry(tool_name)
+            tool_spec = await self._get_tool_from_registry(tool_name)
             if tool_spec:
                 available_tools[tool_name] = tool_spec
                 self._log(f"Campaign tool available: {tool_name}")

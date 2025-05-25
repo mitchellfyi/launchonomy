@@ -55,10 +55,43 @@ class BaseWorkflowAgent(ABC):
         
         return context
     
-    def _get_tool_from_registry(self, tool_name: str) -> Optional[Dict[str, Any]]:
-        """Get a tool specification from the registry."""
-        if self.registry:
-            return self.registry.get_tool_spec(tool_name)
+    async def _get_tool_from_registry(self, tool_name: str, context: Optional[Dict] = None) -> Optional[Dict[str, Any]]:
+        """Get a tool specification from the registry. If not found, attempts auto-provisioning."""
+        if not self.registry:
+            return None
+            
+        # First, check if tool exists in registry
+        tool_spec = self.registry.get_tool_spec(tool_name)
+        if tool_spec:
+            return tool_spec
+        
+        # Tool not found, attempt auto-provisioning if orchestrator is available
+        if self.orchestrator and hasattr(self.orchestrator, 'auto_provision_agent'):
+            self._log(f"Tool '{tool_name}' not found in registry. Attempting auto-provisioning.", "info")
+            
+            missing_item_details = {
+                "type": "tool",
+                "name": tool_name,
+                "reason": "not_found",
+                "details": f"Tool '{tool_name}' was requested by {self.name} but not found in registry."
+            }
+            
+            try:
+                auto_provision_result = await self.orchestrator.auto_provision_agent.handle_trivial_request(
+                    context or self._get_launchonomy_context(), missing_item_details
+                )
+                
+                if auto_provision_result:
+                    self._log(f"Auto-provisioning successful for tool '{tool_name}': {auto_provision_result}", "info")
+                    # Re-check registry after auto-provisioning
+                    tool_spec = self.registry.get_tool_spec(tool_name)
+                    return tool_spec
+                else:
+                    self._log(f"Auto-provisioning declined for tool '{tool_name}' (not trivial or rejected).", "warning")
+                    
+            except Exception as e:
+                self._log(f"Error during auto-provisioning attempt for tool '{tool_name}': {str(e)}", "error")
+        
         return None
     
     def _format_output(self, status: str, data: Dict[str, Any], **kwargs) -> WorkflowOutput:

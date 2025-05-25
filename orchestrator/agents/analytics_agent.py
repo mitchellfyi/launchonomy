@@ -108,7 +108,7 @@ Always provide actionable insights that enable data-driven autonomous decisions.
             include_predictions = input_data.get("include_predictions", True)
             
             # Get available analytics tools
-            available_tools = self._get_available_analytics_tools()
+            available_tools = await self._get_available_analytics_tools()
             
             # Collect raw metrics data
             raw_metrics = await self._collect_raw_metrics(
@@ -172,12 +172,12 @@ Always provide actionable insights that enable data-driven autonomous decisions.
                 error_message=f"Metrics analysis failed: {str(e)}"
             )
     
-    def _get_available_analytics_tools(self) -> Dict[str, Any]:
+    async def _get_available_analytics_tools(self) -> Dict[str, Any]:
         """Get available tools for analytics and data collection."""
         available_tools = {}
         
         for tool_name in self.REQUIRED_TOOLS + self.OPTIONAL_TOOLS:
-            tool_spec = self._get_tool_from_registry(tool_name)
+            tool_spec = await self._get_tool_from_registry(tool_name)
             if tool_spec:
                 available_tools[tool_name] = tool_spec
                 self._log(f"Analytics tool available: {tool_name}")

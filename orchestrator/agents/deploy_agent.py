@@ -86,7 +86,7 @@ Always prioritize features that directly contribute to getting the first paying 
                 raise ValueError("No opportunity specified for deployment")
             
             # Get available deployment tools
-            available_tools = self._get_available_deployment_tools()
+            available_tools = await self._get_available_deployment_tools()
             
             # Plan MVP architecture
             architecture_plan = await self._plan_mvp_architecture(opportunity, requirements, available_tools)
@@ -142,12 +142,12 @@ Always prioritize features that directly contribute to getting the first paying 
                 error_message=f"MVP deployment failed: {str(e)}"
             )
     
-    def _get_available_deployment_tools(self) -> Dict[str, Any]:
+    async def _get_available_deployment_tools(self) -> Dict[str, Any]:
         """Get available tools for deployment and infrastructure."""
         available_tools = {}
         
         for tool_name in self.REQUIRED_TOOLS + self.OPTIONAL_TOOLS:
-            tool_spec = self._get_tool_from_registry(tool_name)
+            tool_spec = await self._get_tool_from_registry(tool_name)
             if tool_spec:
                 available_tools[tool_name] = tool_spec
                 self._log(f"Deployment tool available: {tool_name}")

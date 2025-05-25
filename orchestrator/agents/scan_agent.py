@@ -82,7 +82,7 @@ Always provide data-driven recommendations with clear reasoning and risk assessm
             max_opportunities = input_data.get("max_opportunities", 5)
             
             # Get available tools for market research
-            available_tools = self._get_available_scanning_tools()
+            available_tools = await self._get_available_scanning_tools()
             
             # Execute scanning process
             opportunities = await self._scan_opportunities(
@@ -129,12 +129,12 @@ Always provide data-driven recommendations with clear reasoning and risk assessm
                 error_message=f"Opportunity scanning failed: {str(e)}"
             )
     
-    def _get_available_scanning_tools(self) -> Dict[str, Any]:
+    async def _get_available_scanning_tools(self) -> Dict[str, Any]:
         """Get available tools for market research and scanning."""
         available_tools = {}
         
         for tool_name in self.REQUIRED_TOOLS + self.OPTIONAL_TOOLS:
-            tool_spec = self._get_tool_from_registry(tool_name)
+            tool_spec = await self._get_tool_from_registry(tool_name)
             if tool_spec:
                 available_tools[tool_name] = tool_spec
                 self._log(f"Tool available: {tool_name}")
