@@ -1383,7 +1383,19 @@ You are part of the founding C-Suite team working together through consensus to 
                 review_json["issues"] = [] if review_json.get("approved", False) else [review_json.get("feedback", "No feedback provided")]
                 
                 all_reviews_from_batch.append(review_json)
-                self._log(f"Review from {agent_instance_name}: Valid={review_json.get('valid')}, Issues={len(review_json.get('issues',[]))}", "info")
+                
+                # Create a summary of issues for logging
+                issues = review_json.get('issues', [])
+                if issues:
+                    # Show first issue as summary, truncate if too long
+                    issue_summary = issues[0] if issues else "No specific issue"
+                    if len(issue_summary) > 80:
+                        issue_summary = issue_summary[:77] + "..."
+                    if len(issues) > 1:
+                        issue_summary += f" (+{len(issues)-1} more)"
+                    self._log(f"Review from {agent_instance_name}: Valid={review_json.get('valid')}, Issue: {issue_summary}", "info")
+                else:
+                    self._log(f"Review from {agent_instance_name}: Valid={review_json.get('valid')}, No issues", "info")
 
             except (AgentCommunicationError, json.JSONDecodeError) as e: # Catch errors from _get_json_response
                 self._log(f"Error during peer review from {agent_instance_name}: {str(e)}", "warning")

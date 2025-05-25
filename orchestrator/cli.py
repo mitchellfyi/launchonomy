@@ -70,7 +70,7 @@ class MissionMonitor:
         self.layout = Layout()
         self.layout.split_column(
             Layout(name="mission", size=3),
-            Layout(name="status", size=3),
+            Layout(name="status", size=7),  # Increased from 5 to 7 for expanded status
             Layout(name="agents", size=10),
             Layout(name="logs", ratio=1)
         )
@@ -84,6 +84,11 @@ class MissionMonitor:
         self.spinner = Spinner("dots", text=Text(self._overall_status_message, style="blue"))
         self.brief_activity_log_max_lines = 10 # For the UI panel
         self.brief_activity_log = [] # Separate list for UI panel
+        self.orchestrator = None  # Will be set to access registry
+        
+        # Token tracking
+        self.total_input_tokens = 0
+        self.total_output_tokens = 0
 
     def set_overall_status(self, message: str, is_running: bool):
         self._overall_status_message = message
@@ -98,11 +103,17 @@ class MissionMonitor:
             self._current_operation_start_time = datetime.now()
 
     def set_detail_activity(self, message: str):
-        max_len = 70
+        # Allow longer messages for 3-line display
+        max_len = 210  # Approximately 70 chars per line * 3 lines
         if len(message) > max_len:
             self._detail_activity_message = message[:max_len-3] + "..."
         else:
             self._detail_activity_message = message
+    
+    def add_tokens(self, input_tokens: int, output_tokens: int):
+        """Add token usage to the running total."""
+        self.total_input_tokens += input_tokens
+        self.total_output_tokens += output_tokens
         
     def add_log(self, message: str, msg_type: str = "info"):
         timestamp = datetime.now().strftime("%H:%M:%S")
@@ -128,6 +139,10 @@ class MissionMonitor:
         
     def remove_agent(self, agent: str):
         self.current_cycle_agents.discard(agent)
+    
+    def set_orchestrator(self, orchestrator):
+        """Set orchestrator reference to access registry information."""
+        self.orchestrator = orchestrator
 
     def update(self, mission_title: str):
         self.layout["mission"].update(
@@ -164,15 +179,117 @@ class MissionMonitor:
         else:
             panel_renderable = assembled_main_text
 
+        # Create expanded status display
+        status_lines = []
+        
+        # Line 1: Main status
+        if self._mission_is_running:
+            # Create status line with spinner indicator
+            status_line = Text()
+            status_line.append("● ", style="bold blue")  # Use bullet instead of spinner for static display
+            status_line.append(self._overall_status_message, style="blue")
+            status_lines.append(status_line)
+        else:
+            status_lines.append(Text(self._overall_status_message, style="blue"))
+        
+        # Lines 2-4: Detail activity (up to 3 lines)
+        if self._detail_activity_message:
+            activity_text = Text()
+            activity_text.append("Activity: ", style="dim")
+            
+            # Split long activity messages into multiple lines (max 70 chars per line)
+            activity_msg = self._detail_activity_message
+            line_length = 70
+            activity_lines = []
+            
+            while activity_msg:
+                if len(activity_msg) <= line_length:
+                    activity_lines.append(activity_msg)
+                    break
+                else:
+                    # Find a good break point (space or punctuation)
+                    break_point = line_length
+                    for i in range(line_length, max(0, line_length - 20), -1):
+                        if activity_msg[i] in ' .,;:-':
+                            break_point = i
+                            break
+                    
+                    activity_lines.append(activity_msg[:break_point].strip())
+                    activity_msg = activity_msg[break_point:].strip()
+                    
+                    if len(activity_lines) >= 3:  # Limit to 3 lines
+                        if activity_msg:
+                            activity_lines[-1] += "..."
+                        break
+            
+            # Add the first activity line
+            activity_text.append(activity_lines[0] if activity_lines else "", style="italic dim")
+            status_lines.append(activity_text)
+            
+            # Add additional activity lines if they exist
+            for line in activity_lines[1:]:
+                status_lines.append(Text.assemble(Text("         ", style="dim"), Text(line, style="italic dim")))
+        else:
+            status_lines.append(Text("Activity: Idle", style="dim"))
+        
+        # Line: Timer and Token usage
+        timer_token_line = Text()
+        if self._current_operation_start_time and self._mission_is_running:
+            elapsed_seconds = (datetime.now() - self._current_operation_start_time).total_seconds()
+            timer_token_line.append(f"Elapsed: {elapsed_seconds:.1f}s", style="dim")
+        else:
+            timer_token_line.append("Elapsed: --", style="dim")
+        
+        # Add token usage
+        timer_token_line.append(" | ", style="dim")
+        timer_token_line.append(f"Tokens: ", style="dim")
+        timer_token_line.append(f"↑{self.total_input_tokens:,}", style="green")
+        timer_token_line.append(" ", style="dim")
+        timer_token_line.append(f"↓{self.total_output_tokens:,}", style="cyan")
+        
+        status_lines.append(timer_token_line)
+        
+        status_content = Text("\n").join(status_lines)
+        
         self.layout["status"].update(
-            Panel(panel_renderable, title="Status")
+            Panel(status_content, title="Status")
         )
 
+        # Create simple CSV format agent list
+        agent_names = sorted(self.all_known_agents)
+        
+        # Create comma-separated list with styling
+        agents_csv = Text()
+        for i, agent_name in enumerate(agent_names):
+            if i > 0:
+                agents_csv.append(", ", style="dim")
+            agents_csv.append(agent_name, style="cyan")
+        
+        # Add tools information on separate lines
+        agents_content = Text()
+        agents_content.append("Agents: ", style="bold white")
+        agents_content.append(agents_csv)
+        
+        # Add tools count if orchestrator is available
+        if self.orchestrator and hasattr(self.orchestrator, 'registry'):
+            tool_count = len(self.orchestrator.registry.list_tool_names())
+            agents_content.append(f"\n\nTools Available: ", style="bold white")
+            agents_content.append(f"{tool_count} tools", style="magenta")
+            
+            # Show some example tools
+            tool_names = self.orchestrator.registry.list_tool_names()
+            if tool_names:
+                example_tools = tool_names[:5]  # Show first 5 tools
+                agents_content.append(f"\nExamples: ", style="dim")
+                for i, tool in enumerate(example_tools):
+                    if i > 0:
+                        agents_content.append(", ", style="dim")
+                    agents_content.append(tool, style="yellow")
+                if len(tool_names) > 5:
+                    agents_content.append(f", +{len(tool_names)-5} more", style="dim")
+        
         self.layout["agents"].update(
-            Panel(
-                Text("\n".join(f"• {agent}" for agent in sorted(self.all_known_agents))),
-                title="Known Agents (All Created)"
-            )
+            Panel(agents_content, title="Known Agents & Tools")
         )
         self.layout["logs"].update(
             Panel(
@@ -215,6 +332,7 @@ async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger
 
         orchestrator = create_orchestrator(client=openai_client)
         monitor = MissionMonitor()
+        monitor.set_orchestrator(orchestrator)  # Set orchestrator reference for registry access
         
         with Live(monitor.layout, refresh_per_second=10, console=console, vertical_overflow="visible") as live:
             
@@ -225,9 +343,28 @@ async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger
                 if not live.is_started: 
                     agent_logger.log_agent(agent_name, msg, msg_type)
                 
+                # Extract token usage from log messages if present
+                import re
+                token_match = re.search(r'Cost for .* (\d+) input tokens, (\d+) output tokens', msg)
+                if not token_match:
+                    token_match = re.search(r'(\d+) input.*?(\d+) output.*?tokens', msg)
+                if not token_match:
+                    # Look for cost information that might indicate token usage
+                    cost_match = re.search(r'cost.*?(\d+\.?\d*)', msg.lower())
+                    if cost_match:
+                        # Estimate tokens from cost (rough approximation: $0.0001 per 1000 tokens)
+                        cost = float(cost_match.group(1))
+                        estimated_tokens = int(cost * 10000)  # Very rough estimate
+                        monitor.add_tokens(estimated_tokens // 2, estimated_tokens // 2)
+                
+                if token_match:
+                    input_tokens = int(token_match.group(1))
+                    output_tokens = int(token_match.group(2))
+                    monitor.add_tokens(input_tokens, output_tokens)
+                
                 # The rest of log_patch logic for updating monitor panels remains the same
                 monitor.add_log(f"{agent_name}: {msg}", msg_type)
-                current_activity_detail = f"{agent_name}: {msg[:100]}"
+                current_activity_detail = f"{agent_name}: {msg}"  # Remove truncation here, let set_detail_activity handle it
                 monitor.set_detail_activity(current_activity_detail)
 
                 if agent_name not in monitor.current_cycle_agents:

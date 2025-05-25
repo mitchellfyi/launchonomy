@@ -341,6 +341,191 @@
         }
       },
       "source": "auto-provisioned"
+    },
+    "api": {
+      "description": "Auto-provisioned stub for tool: api",
+      "type": "webhook",
+      "endpoint_details": {
+        "url": "http://localhost:5678/webhook-test/api-placeholder",
+        "method": "POST"
+      },
+      "authentication": {
+        "type": "none"
+      },
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "task_description": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "task_description"
+        ]
+      },
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          }
+        }
+      },
+      "source": "auto-provisioned"
+    },
+    "integration": {
+      "description": "Auto-provisioned stub for tool: integration",
+      "type": "webhook",
+      "endpoint_details": {
+        "url": "http://localhost:5678/webhook-test/integration-placeholder",
+        "method": "POST"
+      },
+      "authentication": {
+        "type": "none"
+      },
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "task_description": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "task_description"
+        ]
+      },
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          }
+        }
+      },
+      "source": "auto-provisioned"
+    },
+    "analytics": {
+      "description": "Auto-provisioned stub for tool: analytics",
+      "type": "webhook",
+      "endpoint_details": {
+        "url": "http://localhost:5678/webhook-test/analytics-placeholder",
+        "method": "POST"
+      },
+      "authentication": {
+        "type": "none"
+      },
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "task_description": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "task_description"
+        ]
+      },
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          }
+        }
+      },
+      "source": "auto-provisioned"
+    },
+    "payment": {
+      "description": "Auto-provisioned stub for tool: payment",
+      "type": "webhook",
+      "endpoint_details": {
+        "url": "http://localhost:5678/webhook-test/payment-placeholder",
+        "method": "POST"
+      },
+      "authentication": {
+        "type": "none"
+      },
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "task_description": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "task_description"
+        ]
+      },
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          }
+        }
+      },
+      "source": "auto-provisioned"
+    },
+    "document": {
+      "description": "Auto-provisioned stub for tool: document",
+      "type": "webhook",
+      "endpoint_details": {
+        "url": "http://localhost:5678/webhook-test/document-placeholder",
+        "method": "POST"
+      },
+      "authentication": {
+        "type": "none"
+      },
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "task_description": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "task_description"
+        ]
+      },
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          }
+        }
+      },
+      "source": "auto-provisioned"
     }
   }
 }
