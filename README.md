@@ -74,22 +74,40 @@ OPENAI_API_KEY=123
 
 ### Command Line Interface
 
-1. Run with default mission:
+**Default Continuous Mode** (recommended for autonomous operation):
 ```bash
+# Run with default mission in continuous mode
 python orchestrator/cli.py
-```
 
-2. Run with specific mission:
-```bash
+# Run with specific mission in continuous mode
 python orchestrator/cli.py "Launch a profitable SaaS product in the productivity niche"
+
+# Limit continuous mode iterations
+python orchestrator/cli.py --max-iterations 20 "Build an AI-powered app"
 ```
 
-The system will:
+**Manual Decision Cycle Mode** (for step-by-step control):
+```bash
+# Run in manual mode with user approval for each decision
+python orchestrator/cli.py --manual
+
+# Force new mission in manual mode
+python orchestrator/cli.py --manual --new "Create a subscription service"
+```
+
+**Continuous Mode** (default) will:
 1. Auto-bootstrap the C-Suite founding team
-2. Analyze the mission and create a strategic plan
-3. Auto-provision any missing tools or specialist agents
-4. Execute the mission through collaborative consensus
-5. Monitor progress and adapt as needed
+2. Run the continuous launch & growth loop autonomously
+3. Execute scan → deploy → campaign → analytics → finance → growth cycles
+4. Auto-provision missing tools and agents as needed
+5. Monitor financial guardrails and pause if needed
+6. Generate revenue and optimize growth automatically
+
+**Manual Mode** will:
+1. Auto-bootstrap the C-Suite founding team
+2. Present each decision for user approval
+3. Allow rejection and revision of recommendations
+4. Provide step-by-step control over mission execution
 
 ### Example Session
 

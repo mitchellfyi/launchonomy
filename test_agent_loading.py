@@ -13,7 +13,7 @@ from typing import Dict, Any
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from orchestrator.registry import Registry
-from orchestrator.orchestrator_agent import create_orchestrator
+from orchestrator.orchestrator_agent_refactored import create_orchestrator
 
 # Configure logging
 logging.basicConfig(level=logging.WARNING, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')

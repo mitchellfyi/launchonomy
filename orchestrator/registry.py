@@ -8,6 +8,29 @@ logger = logging.getLogger(__name__)
 DEFAULT_REGISTRY_FILE = "registry.json"  # Default filename in the same directory
 
 class Registry:
+    """
+    Central registry for managing agents and tools in the Launchonomy system.
+    
+    The Registry provides persistent storage and management for:
+    - Agent specifications and instances
+    - Tool definitions and configurations
+    - Auto-provisioning capabilities
+    - Dynamic agent instantiation
+    
+    Features:
+    - JSON-based persistence
+    - Agent instance caching
+    - Auto-provisioning support
+    - Tool stub generation
+    - Module/class-based agent loading
+    
+    Attributes:
+        filepath: Path to the registry JSON file
+        agents: Dictionary of agent specifications
+        tools: Dictionary of tool specifications
+        _agent_instances: Cache of instantiated agent objects
+    """
+    
     def __init__(self, filepath: Optional[str] = None):
         self.filepath = filepath if filepath else os.path.join(os.path.dirname(__file__), DEFAULT_REGISTRY_FILE)
         self.agents: Dict[str, Dict[str, Any]] = {}
@@ -42,14 +65,15 @@ class Registry:
         except Exception as e:
             logger.error(f"Error saving registry to {self.filepath}: {e}", exc_info=True)
 
-    def add_agent(self, name: str, endpoint: str, certified: bool = False, spec: Optional[Dict[str, Any]] = None):
+    def add_agent(self, name: str, endpoint: str, certified: bool = False, spec: Optional[Dict[str, Any]] = None, persist: bool = True):
         """Adds or updates an agent in the registry."""
         if not name or not endpoint:
             logger.warning("Agent name and endpoint are required to add an agent.")
             return
         self.agents[name] = {"endpoint": endpoint, "certified": certified, "spec": spec or {}}
         logger.info(f"Agent '{name}' added/updated in the registry.")
-        self.save()
+        if persist:
+            self.save()
 
     def add_tool(self, name: str, spec: Dict[str, Any]):
         """Adds or updates a tool in the registry."""

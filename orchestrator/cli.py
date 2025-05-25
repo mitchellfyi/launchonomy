@@ -8,7 +8,7 @@ import os
 import glob
 from dotenv import load_dotenv
 from datetime import datetime
-from typing import Optional, Union, List, Dict, Any
+from typing import Optional, List, Dict, Any
 import click
 from rich.console import Console
 from rich.logging import RichHandler
@@ -22,12 +22,11 @@ from rich.text import Text
 from rich.columns import Columns
 from rich.table import Table
 try:
-    from orchestrator.orchestrator_agent import create_orchestrator
+    from orchestrator.orchestrator_agent_refactored import create_orchestrator
 except ImportError:
     # Fallback for when running from within orchestrator directory
-    from orchestrator_agent import create_orchestrator
+    from orchestrator_agent_refactored import create_orchestrator
 from autogen_ext.models.openai import OpenAIChatCompletionClient
-from typing import Any, AsyncIterator
 try:
     from orchestrator.logging_utils import OverallMissionLog, get_timestamp
 except ImportError:

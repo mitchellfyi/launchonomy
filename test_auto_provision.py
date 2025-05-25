@@ -8,7 +8,7 @@ import logging
 # Add the current directory to the path so we can import orchestrator modules
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from orchestrator.orchestrator_agent import create_orchestrator
+from orchestrator.orchestrator_agent_refactored import create_orchestrator
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')

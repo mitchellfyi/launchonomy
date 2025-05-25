@@ -6,108 +6,10 @@
       "spec": {}
     },
     "AutoProvisionAgent": {
-      "endpoint": "auto_provision_agent.AutoProvisionAgent.handle_trivial_request",
+      "module": "orchestrator.agents.auto_provision_agent",
+      "class": "AutoProvisionAgent",
       "certified": true,
       "spec": {}
-    },
-    "CEO-Agent": {
-      "endpoint": "c_suite.ceo_agent.handle_request",
-      "certified": true,
-      "spec": {
-        "description": "Chief Executive Officer focused on vision & prioritization",
-        "expertise": "strategic vision, business prioritization, executive decision-making, market positioning",
-        "responsibilities": "defines vision & prioritization for the business mission",
-        "type": "c_suite_founding_member",
-        "source": "bootstrapped"
-      }
-    },
-    "CRO-Agent": {
-      "endpoint": "c_suite.cro_agent.handle_request",
-      "certified": true,
-      "spec": {
-        "description": "Chief Revenue Officer focused on customer acquisition & revenue",
-        "expertise": "sales strategy, customer acquisition, revenue optimization, conversion funnels",
-        "responsibilities": "focuses on customer acquisition & revenue generation",
-        "type": "c_suite_founding_member",
-        "source": "bootstrapped"
-      }
-    },
-    "CTO-Agent": {
-      "endpoint": "c_suite.cto_agent.handle_request",
-      "certified": true,
-      "spec": {
-        "description": "Chief Technology Officer owning technical infrastructure & tools",
-        "expertise": "technical architecture, infrastructure, development tools, system integration",
-        "responsibilities": "owns technical infrastructure & tools implementation",
-        "type": "c_suite_founding_member",
-        "source": "bootstrapped"
-      }
-    },
-    "CPO-Agent": {
-      "endpoint": "c_suite.cpo_agent.handle_request",
-      "certified": true,
-      "spec": {
-        "description": "Chief Product Officer owning product/UX experiments & A/B tests",
-        "expertise": "product strategy, user experience, A/B testing, product optimization",
-        "responsibilities": "owns product/UX experiments & A/B tests",
-        "type": "c_suite_founding_member",
-        "source": "bootstrapped"
-      }
-    },
-    "CMO-Agent": {
-      "endpoint": "c_suite.cmo_agent.handle_request",
-      "certified": true,
-      "spec": {
-        "description": "Chief Marketing Officer owning marketing channels & growth hacks",
-        "expertise": "marketing strategy, growth hacking, channel optimization, brand positioning",
-        "responsibilities": "owns marketing channels & growth hacks",
-        "type": "c_suite_founding_member",
-        "source": "bootstrapped"
-      }
-    },
-    "CDO-Agent": {
-      "endpoint": "c_suite.cdo_agent.handle_request",
-      "certified": true,
-      "spec": {
-        "description": "Chief Data Officer owning data strategy, quality, and insights",
-        "expertise": "data strategy, analytics, data quality, business intelligence",
-        "responsibilities": "owns data strategy, quality, and insights",
-        "type": "c_suite_founding_member",
-        "source": "bootstrapped"
-      }
-    },
-    "CCO-Agent": {
-      "endpoint": "c_suite.cco_agent.handle_request",
-      "certified": true,
-      "spec": {
-        "description": "Chief Compliance Officer owning compliance, legal, and regulatory risk",
-        "expertise": "legal compliance, regulatory requirements, risk management, business law",
-        "responsibilities": "owns compliance, legal, and regulatory risk",
-        "type": "c_suite_founding_member",
-        "source": "bootstrapped"
-      }
-    },
-    "CFO-Agent": {
-      "endpoint": "c_suite.cfo_agent.handle_request",
-      "certified": true,
-      "spec": {
-        "description": "Chief Financial Officer overseeing budgets, profitability & reinvestment strategy",
-        "expertise": "financial planning, budget management, profitability analysis, investment strategy",
-        "responsibilities": "oversees budgets, profitability & reinvestment strategy",
-        "type": "c_suite_founding_member",
-        "source": "bootstrapped"
-      }
-    },
-    "CCSO-Agent": {
-      "endpoint": "c_suite.ccso_agent.handle_request",
-      "certified": true,
-      "spec": {
-        "description": "Chief Customer Success Officer owning post-purchase journey: onboarding, support, retention & advocacy",
-        "expertise": "customer success, onboarding, support systems, retention strategies",
-        "responsibilities": "owns post-purchase journey: onboarding, support, retention & advocacy",
-        "type": "c_suite_founding_member",
-        "source": "bootstrapped"
-      }
     },
     "ScanAgent": {
       "module": "orchestrator.agents.scan_agent",
@@ -227,66 +129,6 @@
           "growth_score": "float"
         },
         "type": "workflow_agent"
-      }
-    },
-    "TestAgent": {
-      "endpoint": "test_agent.handle",
-      "certified": false,
-      "spec": {
-        "description": "A test agent",
-        "capabilities": [
-          "testing"
-        ]
-      }
-    },
-    "QuickResponderAgent": {
-      "endpoint": "quick_responder.handle",
-      "certified": false,
-      "spec": {
-        "description": "Responds quickly to simple queries.",
-        "capabilities": [
-          "faq",
-          "greeting"
-        ]
-      }
-    },
-    "TestLoadAgent": {
-      "endpoint": "test_load_agent.TestLoadAgent.handle_request",
-      "certified": true,
-      "spec": {
-        "description": "Test agent for loading verification",
-        "module": "orchestrator.agents.auto_provision_agent",
-        "class": "AutoProvisionAgent",
-        "type": "test_agent"
-      }
-    },
-    "PlaceholderTestAgent": {
-      "endpoint": "placeholder.handle",
-      "certified": false,
-      "spec": {
-        "description": "Test placeholder agent"
-      }
-    },
-    "AutoProvisionedTestAgent": {
-      "endpoint": "auto_provisioned.TestAgent.handle",
-      "certified": false,
-      "spec": {
-        "description": "Auto-provisioned test agent",
-        "module": "orchestrator.agents.auto_provision_agent",
-        "class": "AutoProvisionAgent",
-        "type": "auto_provisioned",
-        "created_by": "test_script"
-      }
-    },
-    "REPLDemoAgent": {
-      "endpoint": "repl_demo.REPLDemoAgent.handle",
-      "certified": false,
-      "spec": {
-        "description": "Demo agent added for REPL test",
-        "module": "orchestrator.agents.auto_provision_agent",
-        "class": "AutoProvisionAgent",
-        "type": "demo_agent",
-        "created_via": "repl_demo"
       }
     }
   },

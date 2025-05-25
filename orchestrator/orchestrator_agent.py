@@ -7,7 +7,7 @@ import re # Added for regex in JSON parsing
 import asyncio # Added for sleep in retries
 import importlib # Added for dynamic agent loading
 from datetime import datetime
-from typing import Dict, List, Optional, Union, Any, Tuple
+from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass, asdict, field # Added field
 from autogen_core import RoutedAgent
 from autogen_core.models import SystemMessage, UserMessage
@@ -92,6 +92,12 @@ class MissionLog:
 
 @dataclass
 class CycleLog:
+    """
+    Detailed log for a single decision cycle within a mission.
+    
+    This class tracks all interactions, costs, and outcomes for a single
+    decision-making cycle in the orchestration process.
+    """
     mission_id: str
     timestamp: str
     overall_mission: str
@@ -130,6 +136,29 @@ class CycleLog:
     tools_used: List[str] = field(default_factory=list)
 
 class OrchestrationAgent(RoutedAgent):
+    """
+    The main orchestration agent that manages the entire mission lifecycle.
+    
+    This agent coordinates between specialist agents, manages decision cycles,
+    handles mission logging, and provides strategic oversight for business missions.
+    It supports both traditional decision-cycle mode and continuous launch-growth mode.
+    
+    Key Features:
+    - Dynamic agent loading and management
+    - Mission logging and resumability
+    - C-Suite agent bootstrapping
+    - Continuous launch and growth loops
+    - Financial guardrails and compliance
+    - Comprehensive error handling and retries
+    
+    Attributes:
+        _client: OpenAI client for LLM interactions
+        registry: Agent and tool registry
+        agents: Dictionary of loaded agent instances
+        current_mission_log: Active mission log for tracking progress
+        c_suite_bootstrapped: Flag indicating if C-Suite agents are initialized
+    """
+    
     def __init__(self, client):
         super().__init__(SYSTEM_PROMPT)
         self._client = client
@@ -188,11 +217,37 @@ class OrchestrationAgent(RoutedAgent):
                 info = self.registry.get_agent_info(name)
                 if info and 'module' in info and 'class' in info:
                     # Dynamically import and instantiate the agent
-                    module = importlib.import_module(info["module"])
+                    try:
+                        module = importlib.import_module(info["module"])
+                    except ImportError:
+                        # Try without the orchestrator prefix if running from root directory
+                        if info["module"].startswith("orchestrator."):
+                            module_name = info["module"][len("orchestrator."):]
+                            module = importlib.import_module(module_name)
+                        else:
+                            raise
                     cls = getattr(module, info["class"])
                     
-                    # Instantiate with registry and self as COA (Chief Orchestration Agent)
-                    agent_instance = cls(registry=self.registry, coa=self)
+                    # Check which parameter name the constructor expects
+                    import inspect
+                    sig = inspect.signature(cls.__init__)
+                    param_names = list(sig.parameters.keys())
+                    
+                    # Instantiate with appropriate parameter name
+                    if 'coa' in param_names:
+                        agent_instance = cls(registry=self.registry, coa=self)
+                    elif 'orchestrator' in param_names:
+                        agent_instance = cls(registry=self.registry, orchestrator=self)
+                    else:
+                        # Fallback: try with registry only
+                        agent_instance = cls(registry=self.registry)
+                    
+                    # Set the client and other attributes like _create_agent does
+                    agent_instance._client = self._client
+                    agent_instance.log_callback = self.log_callback
+                    if not hasattr(agent_instance, 'name'):
+                        agent_instance.name = name
+                    
                     self.agents[name] = agent_instance
                     loaded_count += 1
                     self._log(f"✅ Loaded agent: {name} from {info['module']}.{info['class']}", "debug")
