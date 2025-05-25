@@ -57,6 +57,43 @@
         }
       },
       "source": "auto-provisioned"
+    },
+    "calendar": {
+      "description": "Auto-provisioned stub for tool: calendar",
+      "type": "webhook",
+      "endpoint_details": {
+        "url": "http://localhost:5678/webhook-test/calendar-placeholder",
+        "method": "POST"
+      },
+      "authentication": {
+        "type": "none"
+      },
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "task_description": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "task_description"
+        ]
+      },
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          }
+        }
+      },
+      "source": "auto-provisioned"
     }
   }
 }

@@ -1229,7 +1229,7 @@ class OrchestrationAgent(RoutedAgent):
         }
         
         try:
-            auto_provision_result = await self.auto_provision_agent.handle_trivial_request(
+            auto_provision_result = self.auto_provision_agent.handle_trivial_request(
                 context or {}, missing_item_details
             )
             
@@ -1246,98 +1246,7 @@ class OrchestrationAgent(RoutedAgent):
             self._log(f"Error during auto-provisioning attempt for tool '{tool_name}': {str(e)}", "error")
             return None
 
-    async def vote_on(self, proposal: Dict[str, Any]) -> str:
-        """
-        The orchestrator's vote on a proposal. Returns 'yes' or 'no'.
-        For now, the orchestrator approves valid add_tool/add_agent proposals.
-        """
-        proposal_type = proposal.get("type")
-        proposal_name = proposal.get("name")
-        proposal_spec = proposal.get("spec")
-        
-        self._log(f"Orchestrator voting on proposal: {proposal_type} '{proposal_name}'", "debug")
-        
-        # Basic validation
-        if not proposal_type or not proposal_name or not proposal_spec:
-            self._log(f"Invalid proposal structure. Voting 'no'.", "warning")
-            return "no"
-        
-        # For now, approve valid add_tool and add_agent proposals
-        if proposal_type in ["add_tool", "add_agent"]:
-            # Could add more sophisticated validation here
-            if isinstance(proposal_spec, dict) and proposal_spec.get("source") == "auto-provisioned":
-                self._log(f"Orchestrator approves auto-provisioned {proposal_type} '{proposal_name}'.", "info")
-                return "yes"
-            else:
-                self._log(f"Orchestrator approves {proposal_type} '{proposal_name}'.", "info")
-                return "yes"
-        
-        self._log(f"Unknown proposal type '{proposal_type}'. Voting 'no'.", "warning")
-        return "no"
 
-    async def propose_and_vote(self, proposal: Dict[str, Any]) -> str:
-        """
-        Orchestrates the consensus voting process for a proposal.
-        Collects votes from self and available agents, returns 'accepted' or 'rejected'.
-        """
-        proposal_type = proposal.get("type")
-        proposal_name = proposal.get("name")
-        
-        self._log(f"Starting consensus vote for proposal: {proposal_type} '{proposal_name}'", "info")
-        
-        votes = []
-        
-        # Get orchestrator's own vote
-        try:
-            orchestrator_vote = await self.vote_on(proposal)
-            votes.append(("OrchestrationAgent", orchestrator_vote))
-            self._log(f"OrchestrationAgent vote: {orchestrator_vote}", "debug")
-        except Exception as e:
-            self._log(f"Error getting orchestrator vote: {str(e)}", "error")
-            votes.append(("OrchestrationAgent", "no"))  # Default to no on error
-        
-        # Get votes from specialist agents
-        for agent_name, agent_instance in self.agents.items():
-            if agent_name == self.name:  # Skip self
-                continue
-                
-            try:
-                # Check if agent has a vote_on method
-                if hasattr(agent_instance, 'vote_on') and callable(agent_instance.vote_on):
-                    agent_vote = await agent_instance.vote_on(proposal)
-                    votes.append((agent_name, agent_vote))
-                    self._log(f"{agent_name} vote: {agent_vote}", "debug")
-                else:
-                    # For proposals from AutoProvisionAgent, default to 'yes' for other agents
-                    # This assumes that if AutoProvisionAgent deemed it trivial, other agents would likely agree
-                    if proposal.get("spec", {}).get("source") == "auto-provisioned":
-                        default_vote = "yes"
-                        votes.append((agent_name, default_vote))
-                        self._log(f"{agent_name} (no vote_on method) defaults to: {default_vote} for auto-provisioned item", "debug")
-                    else:
-                        # For non-auto-provisioned proposals, be more conservative
-                        default_vote = "no"
-                        votes.append((agent_name, default_vote))
-                        self._log(f"{agent_name} (no vote_on method) defaults to: {default_vote}", "debug")
-                        
-            except Exception as e:
-                self._log(f"Error getting vote from {agent_name}: {str(e)}", "warning")
-                votes.append((agent_name, "no"))  # Default to no on error
-        
-        # Count votes
-        yes_votes = [vote for _, vote in votes if vote.lower() == "yes"]
-        total_votes = len(votes)
-        
-        self._log(f"Vote results: {len(yes_votes)}/{total_votes} yes votes", "info")
-        
-        # Require unanimous approval for now (can be adjusted)
-        if len(yes_votes) == total_votes and total_votes > 0:
-            result = "accepted"
-        else:
-            result = "rejected"
-        
-        self._log(f"Consensus result for {proposal_type} '{proposal_name}': {result}", "info")
-        return result
 
 # Factory function to create orchestrator (if needed by CLI or other parts)
 def create_orchestrator(client: Optional[OpenAIChatCompletionClient] = None) -> OrchestrationAgent:

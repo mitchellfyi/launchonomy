@@ -28,7 +28,14 @@ The Launchonomy system is now fully operational with the AutoProvisionAgent inte
 - **Tool and agent specifications** with endpoints, schemas, etc.
 - **Proposal application** system for auto-provisioning
 
-### 4. CLI Interface (`orchestrator/cli.py`)
+### 4. Consensus System (`orchestrator/consensus.py`)
+- **Centralized voting mechanism** with 100% unanimous approval requirement
+- **Registry-based agent discovery** for voting participants
+- **Strict validation** ensures only trivial proposals pass through
+- **Comprehensive logging** of all voting decisions and rationale
+- **Error handling** treats missing vote_on methods as "no" votes
+
+### 5. CLI Interface (`orchestrator/cli.py`)
 - **Rich terminal UI** with live updates, spinners, and panels
 - **Mission monitoring** with agent status and activity logs
 - **User interaction** for accept/reject decisions
@@ -53,11 +60,12 @@ The Launchonomy system is now fully operational with the AutoProvisionAgent inte
 - **Tool Lookup Integration**: `_execute_with_guardrails` checks registry for available tools
 - **Endpoint Management**: Tools include endpoint details for actual integration
 
-### ✅ Consensus Voting System
-- **Multi-Agent Voting**: All specialist agents can vote on proposals
-- **Unanimous Approval**: Currently requires all agents to approve (configurable)
-- **Fallback Voting**: Agents without `vote_on` method get sensible defaults
-- **Vote Logging**: All voting decisions are logged for transparency
+### ✅ Centralized Consensus System
+- **100% Unanimous Approval**: Strict requirement ensures nothing slips through
+- **Registry-Based Voting**: Automatically discovers all agents for voting
+- **Centralized Logic**: Single `consensus.py` module handles all voting
+- **Error-Safe Defaults**: Missing vote_on methods default to "no" votes
+- **Comprehensive Logging**: Detailed vote tracking and decision rationale
 
 ### ✅ Enhanced Execution Pipeline
 - **Tool-Aware Execution**: Execution prompts include available tool information
@@ -67,25 +75,38 @@ The Launchonomy system is now fully operational with the AutoProvisionAgent inte
 
 ## 🧪 Tested Functionality
 
-### ✅ AutoProvisionAgent Test Results
+### ✅ AutoProvisionAgent + Consensus Test Results
 ```
-🚀 Testing AutoProvisionAgent integration...
+🧪 Testing consensus integration...
 ✅ API key found
 ✅ Orchestrator created successfully
-✅ Registry loaded with agents: ['OrchestrationAgent', 'AutoProvisionAgent']
-✅ AutoProvisionAgent initialized: AutoProvisionAgent
-✅ Tool found/provisioned: Auto-provisioned stub for tool: spreadsheet
-✅ Tools in registry: ['NamecheapDomainAPI', 'spreadsheet']
-🎉 Test completed successfully!
+✅ Tool auto-provisioned via consensus: Auto-provisioned stub for tool: calendar
+✅ Tools in registry: ['NamecheapDomainAPI', 'spreadsheet', 'calendar']
+🎉 Consensus integration test complete!
 ```
 
-### ✅ Generated Tool Specification Example
-The system successfully auto-provisioned a "spreadsheet" tool with:
+### ✅ Consensus Voting Test Results
+```
+🗳️  Testing Consensus Voting System
+📋 Test 1: Auto-provisioned tool proposal - ✅ ACCEPTED (2/2 votes)
+🤖 Test 2: Manual agent proposal - ✅ ACCEPTED (2/2 votes)  
+❌ Test 3: Invalid proposal - ❌ REJECTED (0/2 votes)
+👥 Available voting agents: ['OrchestrationAgent', 'AutoProvisionAgent']
+🎉 Consensus testing complete!
+```
+
+### ✅ Generated Tool Specifications Examples
+The system successfully auto-provisioned multiple tools via consensus:
+
+**Spreadsheet Tool:**
 - Webhook endpoint: `http://localhost:5678/webhook-test/spreadsheet-placeholder`
-- Request schema with `task_description` and `data` fields
-- Response schema with `status` and `result` fields
-- Authentication placeholder
-- Source tracking as "auto-provisioned"
+- Request/response schemas with proper JSON structure
+- Authentication placeholder and source tracking
+
+**Calendar Tool:**
+- Webhook endpoint: `http://localhost:5678/webhook-test/calendar-placeholder`
+- Identical schema structure for consistency
+- Auto-provisioned via 100% consensus approval
 
 ## 📁 File Structure
 ```
@@ -94,6 +115,7 @@ launchonomy/
 │   ├── orchestrator_agent.py      # Main orchestrator logic
 │   ├── registry.py                # Registry management
 │   ├── registry.json              # Persistent tool/agent storage
+│   ├── consensus.py               # Centralized voting system
 │   ├── cli.py                     # Rich terminal interface
 │   ├── logging_utils.py           # Mission logging utilities
 │   ├── agents/
@@ -103,9 +125,9 @@ launchonomy/
 │       ├── orch_primer.txt         # Orchestrator system prompt
 │       ├── specialist_generic.txt  # Generic specialist template
 │       └── retrospective.txt       # Retrospective analysis template
-├── test_auto_provision.py         # Integration test script
 ├── requirements.txt               # Python dependencies
 ├── .env                          # Environment variables (API keys)
+├── SYSTEM_STATUS.md              # Current implementation status
 └── README.md                     # Project documentation
 ```
 

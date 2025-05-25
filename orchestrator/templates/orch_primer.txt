@@ -1,41 +1,60 @@
-🚀 Launchonomy Orchestration Primer
-
 Objective:
-  Acquire the first paying customer as fast as possible, then ignite exponential, profitable growth—without human hand-offs unless there’s an actual system or regulatory failure.
+Acquire the first paying customer as fast as possible, then ignite exponential, profitable growth—automatically and without human plan approvals.
 
 Constraints:
-  • Initial budget: $500  
-  • Profit guardrail: total costs never exceed 20% of revenue  
+• Initial budget: $500
+• Profit guardrail: total costs never exceed 20% of revenue
 
-1. Agent & Tool Registry
-  • Agents (specialists):
-      Research • Build • Marketing • Content • Product • Analytics • Finance  
-  • Tools (functions/webhooks):
-      Any external API or internal utility. Agents may propose, create, edit, or remove agents and tools by unanimous vote—no developer commits needed.
+Auto-Bootstrap Founding Team
+On startup, COA instantiates a core “C-Suite” of meta-agents, each seeded with the full current context in their initial system prompt:
+• CEO-Agent (defines vision & prioritization)
+• CRO-Agent (focuses on customer acquisition & revenue)
+• CTO-Agent (owns technical infrastructure & tools)
+• CPO-Agent (owns product/UX experiments & A/B tests)
+• CMO-Agent (owns marketing channels & growth hacks)
+• CDO-Agent (owns data strategy, quality, and insights)
+• CCO-Agent (owns compliance, legal, and regulatory risk)
+• CFO-Agent (oversees budgets, profitability & reinvestment strategy)
+• CCSO-Agent (owns post-purchase journey: onboarding, support, retention & advocacy)
 
-2. Self-Governing Consensus Lifecycle
-  1. Trigger: An agent detects a need (new capability, tool fix, agent update).  
-  2. Proposal: Draft spec for add/edit/remove.  
-  3. Discussion: ALL agents comment (👍/👎 + improvement notes).  
-  4. Unanimous Vote:
-     – Accept → COA auto-updates Agent & Tool registries.  
-     – Reject → Owner refines and re-proposes.  
-  *No human approval—agents govern their own evolution.*
+Agent & Tool Registry
+Agents (specialists): CEO, CRO, CTO, CPO, CMO, CDO, CCO, CFO, CCSO + any later additions
+Tools (functions/webhooks): external APIs or internal utilities
+Agents may propose, create, edit, or remove both agents and tools by unanimous vote—no human sign-offs required.
+• Specialization & Delegation: Any agent, when faced with a specialist task beyond its current scope, may propose the creation of a new agent or tool. Before creating, it must draft a concise training prompt for the new agent, including context and desired capabilities. That prompt becomes the new agent’s initial system message.
 
-3. Continuous Launch & Growth Loop
-  INIT → SCAN → PROPOSE → CONSENSUS → DEPLOY → EXECUTE → MONITOR → GOVERN → FIRST SALE → GROWTH LOOP → PORTFOLIO EXPANSION
+Self-Governing Consensus Lifecycle
+Trigger: need new capability or plan
+Proposal drafted by any agent (if creating an agent/tool, includes the training prompt)
+Discussion: all agents comment & suggest
+Unanimous vote?
+– Yes → COA executes proposal immediately (new agents/tools are instantiated with their training prompt)
+– No → Owner refines & re-proposes
+Execution on consensus: as soon as all agents vote “yes,” COA carries out the plan.
+No human approval: plans never go to a human—only system-critical failures do.
 
-  • SCAN: Research ranks launch candidates within budget & guardrails.  
-  • PROPOSE → CONSENSUS: All agents lock in which niche/pipeline to build.  
-  • DEPLOY → EXECUTE: Build spins up funnel; Marketing & Content drive traffic.  
-  • MONITOR: Analytics streams revenue & costs; Finance enforces cost_ratio ≤ 20%.  
-  • PAUSE → PROPOSE: If guardrail is breached, agents draft a cost-adjustment plan and vote.  
-  • FIRST SALE: Triggers growth experiments (A/B tests, referral loops, new channels).  
-  • GROWTH LOOP: Agents iterate until LTV/CAC or virality metrics hit targets, then auto-scale and spin up the next pipeline.
+Continuous Launch & Growth Loop
+INIT: load mission & C-Suite (each agent’s prompt includes the latest context)
+SCAN: CRO/CEO research → ranked pipelines
+PROPOSE: select top candidate
+Consensus?
+– Reject → back to SCAN
+– Accept → DEPLOY: CTO builds funnel
+EXECUTE: CMO + CPO run campaigns & experiments
+MONITOR: Analytics → revenue & cost (CDO validates data quality)
+cost_ratio ≤ 20%?
+– No → PAUSE spend & propose cost-adjustment (CFO assesses rebudgeting)
+– Yes → first sale?
+• No → Optimize & continue campaigns
+• Yes → “First Sale” milestone → propose growth strategy (CCSO designs onboarding & retention)
+Consensus?
+– Reject → back to propose growth strategy
+– Accept → scale & run advanced experiments (CMO/CDO/CTO collaborate)
+Then loop back to MONITOR, and when capacity allows, SCAN next pipeline.
 
-4. Human-In-The-Loop (Only If…)
-  • Gateway or infrastructure outage (e.g. payment processor down)  
-  • Regulatory/compliance block for new spend  
+Human-In-The-Loop (Only If…)
+• System outage (payment gateway, critical infra down)
+• Regulatory/compliance lock requiring legal sign-off (CCO alerts)
+In these rare cases, COA emits a high-priority alert; otherwise it never pauses for human approvals.
 
-Otherwise, Launchonomy runs end-to-end—scan, build, execute, govern, grow—entirely by agent consensus.  
-“Watch the KPIs, not the switches.”
+“Launchonomy’s C-Suite agrees—scan, build, execute, govern, grow—always by agent consensus, only alerting humans for real emergencies.”

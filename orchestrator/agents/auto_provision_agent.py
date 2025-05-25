@@ -115,7 +115,7 @@ class AutoProvisionAgent:
             self._log(f"Unknown item type for stub spec generation: {item_type}", "error")
             raise ValueError(f"Unknown item type for stub spec generation: {item_type}")
 
-    async def handle_trivial_request(self, context: Dict, missing_item_details: Dict) -> Optional[str]:
+    def handle_trivial_request(self, context: Dict, missing_item_details: Dict) -> Optional[str]:
         """
         Handles a potentially trivial request for a missing tool or agent.
         If deemed trivial, proposes it for consensus and applies if accepted.
@@ -148,19 +148,21 @@ class AutoProvisionAgent:
 
         self._log(f"Generated proposal for '{item_name}': {proposal}", "debug")
 
-        if not hasattr(self.coa, 'propose_and_vote') or not callable(self.coa.propose_and_vote):
-            self._log("COA (OrchestratorAgent) does not have a callable 'propose_and_vote' method.", "error")
-            return None
-
+        # Use the centralized consensus system
         self._log(f"Submitting proposal for {item_type} '{item_name}' to consensus.", "info")
-        # The propose_and_vote method will need to be async if it involves agent communication
         try:
-            vote_result = await self.coa.propose_and_vote(proposal)
+            # Import consensus system
+            try:
+                from orchestrator.consensus import propose_and_vote
+            except ImportError:
+                from consensus import propose_and_vote
+            
+            vote_result = propose_and_vote(proposal)
         except Exception as e:
-            self._log(f"Error during propose_and_vote for {item_name}: {e}", "error")
+            self._log(f"Error during consensus voting for {item_name}: {e}", "error")
             return None # Or handle error more gracefully
 
-        if vote_result == "accepted":
+        if vote_result:
             self._log(f"Proposal for '{item_name}' ACCEPTED by consensus.", "info")
             try:
                 self.registry.apply_proposal(proposal)
@@ -172,7 +174,7 @@ class AutoProvisionAgent:
                 self._log(f"Error applying accepted proposal for {item_name} to registry: {e}", "error")
                 return f"Error applying auto-provisioned {item_type} '{item_name}' to registry after acceptance."
         else:
-            self._log(f"Proposal for '{item_name}' REJECTED by consensus (Result: {vote_result}).", "warning")
+            self._log(f"Proposal for '{item_name}' REJECTED by consensus.", "warning")
             return None
             
 # Example (conceptual) for n8n interaction - to be developed if n8n API is available and configured
