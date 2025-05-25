@@ -11,20 +11,12 @@ from dataclasses import asdict
 from autogen_core import RoutedAgent
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 
-# Import our new modular components
-try:
-    from orchestrator.registry import Registry
-    from orchestrator.agents.auto_provision_agent import AutoProvisionAgent
-    from orchestrator.mission_management import MissionManager, MissionLog, CycleLog
-    from orchestrator.agent_communication import AgentCommunicator, ReviewManager, AgentCommunicationError
-    from orchestrator.agent_management import AgentManager, TemplateError, load_template
-except ImportError:
-    # Fallback for when running from within orchestrator directory
-    from registry import Registry
-    from agents.auto_provision_agent import AutoProvisionAgent
-    from mission_management import MissionManager, MissionLog, CycleLog
-    from agent_communication import AgentCommunicator, ReviewManager, AgentCommunicationError
-    from agent_management import AgentManager, TemplateError, load_template
+# Import our modular components
+from ..registry import Registry
+from ..agents.workflow.auto_provision_agent import AutoProvisionAgent
+from .mission_manager import MissionManager, MissionLog, CycleLog
+from .communication import AgentCommunicator, ReviewManager, AgentCommunicationError
+from .agent_manager import AgentManager, TemplateError, load_template
 
 # Configure logging
 logging.basicConfig(level=logging.WARNING)

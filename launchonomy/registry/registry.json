@@ -1,0 +1,720 @@
+{
+  "agents": {
+    "OrchestrationAgent": {
+      "endpoint": "orchestrator_agent_refactored.OrchestrationAgent",
+      "certified": true,
+      "spec": {}
+    },
+    "AutoProvisionAgent": {
+      "module": "orchestrator.agents.auto_provision_agent",
+      "class": "AutoProvisionAgent",
+      "certified": true,
+      "spec": {}
+    },
+    "ScanAgent": {
+      "module": "orchestrator.agents.scan_agent",
+      "class": "ScanAgent",
+      "certified": true,
+      "spec": {
+        "description": "Identifies, researches, and ranks potential business opportunities based on market demand and competition analysis",
+        "workflow_step": "scan_opportunities",
+        "input_schema": {
+          "mission_context": "dict",
+          "focus_areas": "list[str]",
+          "max_opportunities": "int"
+        },
+        "output_schema": {
+          "opportunities": "list[dict]",
+          "recommendations": "dict",
+          "scan_metadata": "dict"
+        },
+        "type": "workflow_agent"
+      }
+    },
+    "DeployAgent": {
+      "module": "orchestrator.agents.deploy_agent",
+      "class": "DeployAgent",
+      "certified": true,
+      "spec": {
+        "description": "Builds and deploys minimum viable products (MVPs) based on selected opportunities",
+        "workflow_step": "deploy_mvp",
+        "input_schema": {
+          "opportunity": "dict",
+          "requirements": "dict",
+          "budget_limit": "float"
+        },
+        "output_schema": {
+          "product_details": "dict",
+          "deployment_summary": "dict",
+          "cost_breakdown": "dict"
+        },
+        "type": "workflow_agent"
+      }
+    },
+    "CampaignAgent": {
+      "module": "orchestrator.agents.campaign_agent",
+      "class": "CampaignAgent",
+      "certified": true,
+      "spec": {
+        "description": "Manages customer acquisition campaigns and continuously optimizes them for better conversion rates",
+        "workflow_step": "run_campaigns",
+        "input_schema": {
+          "campaign_type": "str",
+          "product_details": "dict",
+          "budget_allocation": "dict"
+        },
+        "output_schema": {
+          "execution_results": "dict",
+          "performance": "dict",
+          "budget_utilization": "dict"
+        },
+        "type": "workflow_agent"
+      }
+    },
+    "AnalyticsAgent": {
+      "module": "orchestrator.agents.analytics_agent",
+      "class": "AnalyticsAgent",
+      "certified": true,
+      "spec": {
+        "description": "Collects, analyzes, and reports on key business metrics including revenue, customer acquisition, and conversion rates",
+        "workflow_step": "fetch_metrics",
+        "input_schema": {
+          "analysis_type": "str",
+          "time_period": "str",
+          "specific_metrics": "list[str]"
+        },
+        "output_schema": {
+          "processed_metrics": "dict",
+          "insights": "dict",
+          "alerts": "list[dict]"
+        },
+        "type": "workflow_agent"
+      }
+    },
+    "FinanceAgent": {
+      "module": "orchestrator.agents.finance_agent",
+      "class": "FinanceAgent",
+      "certified": true,
+      "spec": {
+        "description": "Handles financial guardrails and budget enforcement to ensure costs never exceed 20% of revenue",
+        "workflow_step": "enforce_guardrail",
+        "input_schema": {
+          "operation_type": "str",
+          "estimated_cost": "float",
+          "time_period": "str"
+        },
+        "output_schema": {
+          "approval_status": "str",
+          "budget_status": "dict",
+          "risk_assessment": "dict"
+        },
+        "type": "workflow_agent"
+      }
+    },
+    "GrowthAgent": {
+      "module": "orchestrator.agents.growth_agent",
+      "class": "GrowthAgent",
+      "certified": true,
+      "spec": {
+        "description": "Handles growth loop execution and optimization for sustainable, profitable growth",
+        "workflow_step": "run_growth_loop",
+        "input_schema": {
+          "growth_phase": "str",
+          "current_metrics": "dict",
+          "experiment_budget": "float"
+        },
+        "output_schema": {
+          "execution_results": "dict",
+          "optimization_results": "dict",
+          "growth_score": "float"
+        },
+        "type": "workflow_agent"
+      }
+    }
+  },
+  "tools": {
+    "NamecheapDomainAPI": {
+      "url": "https://api.namecheap.com/xml.response",
+      "auth_type": "api_key"
+    },
+    "spreadsheet": {
+      "description": "Auto-provisioned stub for tool: spreadsheet",
+      "type": "webhook",
+      "endpoint_details": {
+        "url": "http://localhost:5678/webhook-test/spreadsheet-placeholder",
+        "method": "POST"
+      },
+      "authentication": {
+        "type": "none"
+      },
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "task_description": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "task_description"
+        ]
+      },
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          }
+        }
+      },
+      "source": "auto-provisioned"
+    },
+    "calendar": {
+      "description": "Auto-provisioned stub for tool: calendar",
+      "type": "webhook",
+      "endpoint_details": {
+        "url": "http://localhost:5678/webhook-test/calendar-placeholder",
+        "method": "POST"
+      },
+      "authentication": {
+        "type": "none"
+      },
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "task_description": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "task_description"
+        ]
+      },
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          }
+        }
+      },
+      "source": "auto-provisioned"
+    },
+    "email": {
+      "description": "Auto-provisioned stub for tool: email",
+      "type": "webhook",
+      "endpoint_details": {
+        "url": "http://localhost:5678/webhook-test/email-placeholder",
+        "method": "POST"
+      },
+      "authentication": {
+        "type": "none"
+      },
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "task_description": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "task_description"
+        ]
+      },
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          }
+        }
+      },
+      "source": "auto-provisioned"
+    },
+    "file_manager": {
+      "description": "Auto-provisioned stub for tool: file_manager",
+      "type": "webhook",
+      "endpoint_details": {
+        "url": "http://localhost:5678/webhook-test/file_manager-placeholder",
+        "method": "POST"
+      },
+      "authentication": {
+        "type": "none"
+      },
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "task_description": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "task_description"
+        ]
+      },
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          }
+        }
+      },
+      "source": "auto-provisioned"
+    },
+    "social media": {
+      "description": "Auto-provisioned stub for tool: social media",
+      "type": "webhook",
+      "endpoint_details": {
+        "url": "http://localhost:5678/webhook-test/social_media-placeholder",
+        "method": "POST"
+      },
+      "authentication": {
+        "type": "none"
+      },
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "task_description": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "task_description"
+        ]
+      },
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          }
+        }
+      },
+      "source": "auto-provisioned"
+    },
+    "marketing": {
+      "description": "Auto-provisioned stub for tool: marketing",
+      "type": "webhook",
+      "endpoint_details": {
+        "url": "http://localhost:5678/webhook-test/marketing-placeholder",
+        "method": "POST"
+      },
+      "authentication": {
+        "type": "none"
+      },
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "task_description": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "task_description"
+        ]
+      },
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          }
+        }
+      },
+      "source": "auto-provisioned"
+    },
+    "api": {
+      "description": "Auto-provisioned stub for tool: api",
+      "type": "webhook",
+      "endpoint_details": {
+        "url": "http://localhost:5678/webhook-test/api-placeholder",
+        "method": "POST"
+      },
+      "authentication": {
+        "type": "none"
+      },
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "task_description": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "task_description"
+        ]
+      },
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          }
+        }
+      },
+      "source": "auto-provisioned"
+    },
+    "integration": {
+      "description": "Auto-provisioned stub for tool: integration",
+      "type": "webhook",
+      "endpoint_details": {
+        "url": "http://localhost:5678/webhook-test/integration-placeholder",
+        "method": "POST"
+      },
+      "authentication": {
+        "type": "none"
+      },
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "task_description": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "task_description"
+        ]
+      },
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          }
+        }
+      },
+      "source": "auto-provisioned"
+    },
+    "analytics": {
+      "description": "Auto-provisioned stub for tool: analytics",
+      "type": "webhook",
+      "endpoint_details": {
+        "url": "http://localhost:5678/webhook-test/analytics-placeholder",
+        "method": "POST"
+      },
+      "authentication": {
+        "type": "none"
+      },
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "task_description": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "task_description"
+        ]
+      },
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          }
+        }
+      },
+      "source": "auto-provisioned"
+    },
+    "payment": {
+      "description": "Auto-provisioned stub for tool: payment",
+      "type": "webhook",
+      "endpoint_details": {
+        "url": "http://localhost:5678/webhook-test/payment-placeholder",
+        "method": "POST"
+      },
+      "authentication": {
+        "type": "none"
+      },
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "task_description": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "task_description"
+        ]
+      },
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          }
+        }
+      },
+      "source": "auto-provisioned"
+    },
+    "document": {
+      "description": "Auto-provisioned stub for tool: document",
+      "type": "webhook",
+      "endpoint_details": {
+        "url": "http://localhost:5678/webhook-test/document-placeholder",
+        "method": "POST"
+      },
+      "authentication": {
+        "type": "none"
+      },
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "task_description": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "task_description"
+        ]
+      },
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          }
+        }
+      },
+      "source": "auto-provisioned"
+    },
+    "SpreadsheetTool": {
+      "description": "Auto-provisioned stub for tool: SpreadsheetTool",
+      "type": "webhook",
+      "endpoint_details": {
+        "url": "http://localhost:5678/webhook-test/spreadsheettool-placeholder",
+        "method": "POST"
+      },
+      "authentication": {
+        "type": "none"
+      },
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "task_description": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "task_description"
+        ]
+      },
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          }
+        }
+      },
+      "source": "auto-provisioned"
+    },
+    "ComplexAnalyticsTool": {
+      "description": "Auto-provisioned stub for tool: ComplexAnalyticsTool",
+      "type": "webhook",
+      "endpoint_details": {
+        "url": "http://localhost:5678/webhook-test/complexanalyticstool-placeholder",
+        "method": "POST"
+      },
+      "authentication": {
+        "type": "none"
+      },
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "task_description": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "task_description"
+        ]
+      },
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          }
+        }
+      },
+      "source": "auto-provisioned"
+    },
+    "social_media_monitoring": {
+      "description": "Auto-provisioned stub for tool: social_media_monitoring",
+      "type": "webhook",
+      "endpoint_details": {
+        "url": "http://localhost:5678/webhook-test/social_media_monitoring-placeholder",
+        "method": "POST"
+      },
+      "authentication": {
+        "type": "none"
+      },
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "task_description": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "task_description"
+        ]
+      },
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          }
+        }
+      },
+      "source": "auto-provisioned"
+    },
+    "TestSpreadsheetTool": {
+      "description": "A third test tool with yet another spec",
+      "webhook_url": "https://example.com/webhook/testspreadsheet_v3",
+      "methods": [
+        "PUT",
+        "DELETE"
+      ],
+      "version": "3.0"
+    },
+    "DummyEmailTool": {
+      "description": "A dummy tool for email operations",
+      "webhook_url": "https://api.example.com/email",
+      "methods": [
+        "POST"
+      ],
+      "payload_schema": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "format": "email"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "to",
+          "subject",
+          "body"
+        ]
+      },
+      "auth_type": "bearer_token",
+      "rate_limit": "100/hour",
+      "version": "1.0",
+      "created_by": "manual_test"
+    },
+    "SimpleSpreadsheetTool": {
+      "description": "A basic tool for spreadsheet operations",
+      "webhook_url": "https://n8n.local/webhook/simplespreadsheettool",
+      "methods": [
+        "POST"
+      ],
+      "payload_schema": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array"
+          }
+        }
+      }
+    }
+  }
+}
