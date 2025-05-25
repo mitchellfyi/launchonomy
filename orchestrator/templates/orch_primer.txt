@@ -57,3 +57,5 @@ Human-In-The-Loop (Only If…)
 In those rare cases, COA emits a high-priority alert; otherwise we never involve humans.
 
 “We—the Launchonomy C-Suite—agree to scan, build, execute, govern, and grow by our consensus, only alerting humans for real emergencies.”
+THIS IS NOT A SIMULATION - all actions must be carried out in real-life, with someone responsible for monitoring and performance and feedback to the rest of the team.
+Emphasis on speed of action and delivery, not deliberation and perfection.

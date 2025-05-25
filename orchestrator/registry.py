@@ -136,8 +136,42 @@ class Registry:
             self.add_agent(name, endpoint=endpoint, certified=False, spec=spec)
         elif proposal_type == "add_tool":
             self.add_tool(name, spec)
+            # Emit stub file for the new tool
+            self._emit_tool_stub(name, spec)
         else:
             logger.warning(f"Unknown proposal type: {proposal_type}")
+
+    def _emit_tool_stub(self, tool_name: str, tool_spec: Dict[str, Any]):
+        """Emits a stub JSON file for a tool in tools/stubs/ directory."""
+        try:
+            # Create the stubs directory if it doesn't exist
+            stubs_dir = "tools/stubs"
+            os.makedirs(stubs_dir, exist_ok=True)
+            
+            # Handle name collisions by checking if file exists and appending version suffix
+            base_filename = f"{tool_name}.json"
+            stub_filepath = os.path.join(stubs_dir, base_filename)
+            
+            # If file exists, append version suffix
+            if os.path.exists(stub_filepath):
+                version = 1
+                while True:
+                    versioned_filename = f"{tool_name}_v{version}.json"
+                    versioned_filepath = os.path.join(stubs_dir, versioned_filename)
+                    if not os.path.exists(versioned_filepath):
+                        stub_filepath = versioned_filepath
+                        logger.info(f"Tool stub file already exists, creating versioned file: {versioned_filename}")
+                        break
+                    version += 1
+            
+            # Write the tool spec to the stub file
+            with open(stub_filepath, "w") as f:
+                json.dump(tool_spec, f, indent=2)
+            
+            logger.info(f"Tool stub file created: {stub_filepath}")
+            
+        except Exception as e:
+            logger.error(f"Error creating tool stub file for '{tool_name}': {e}", exc_info=True)
 
     def list_agent_names(self) -> List[str]:
         """Returns a list of all registered agent names."""
@@ -151,6 +185,45 @@ class Registry:
         """Retrieves the endpoint for a given agent."""
         agent_info = self.agents.get(agent_name)
         return agent_info.get("endpoint") if agent_info else None
+
+    def get_agent_info(self, agent_name: str) -> Optional[Dict[str, str]]:
+        """
+        Retrieves agent module and class information for instantiation.
+        Returns dict with 'module' and 'class' keys if available.
+        """
+        agent_spec = self.get_agent_spec(agent_name)
+        if not agent_spec:
+            return None
+        
+        # First check if module and class are at the top level (new format)
+        if 'module' in agent_spec and 'class' in agent_spec:
+            return {
+                "module": agent_spec['module'],
+                "class": agent_spec['class']
+            }
+        
+        # Then check if module and class are in the spec (alternative format)
+        spec = agent_spec.get('spec', {})
+        if 'module' in spec and 'class' in spec:
+            return {
+                "module": spec['module'],
+                "class": spec['class']
+            }
+        
+        # Fallback: try to derive from endpoint for backward compatibility
+        endpoint = agent_spec.get('endpoint', '')
+        if '.' in endpoint:
+            parts = endpoint.split('.')
+            if len(parts) >= 2:
+                # Assume format like "module.ClassName.method" or "module.ClassName"
+                module = parts[0]
+                class_name = parts[1]
+                return {
+                    "module": module,
+                    "class": class_name
+                }
+        
+        return None
 
 
 class AgentPlaceholder:

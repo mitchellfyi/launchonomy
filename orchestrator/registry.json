@@ -1,18 +1,14 @@
 {
   "agents": {
     "OrchestrationAgent": {
-      "endpoint": "internal",
+      "endpoint": "orchestrator_agent.OrchestrationAgent",
       "certified": true,
-      "spec": {
-        "description": "The main orchestrator agent that manages other specialist AI agents to achieve business missions."
-      }
+      "spec": {}
     },
     "AutoProvisionAgent": {
       "endpoint": "auto_provision_agent.AutoProvisionAgent.handle_trivial_request",
       "certified": true,
-      "spec": {
-        "description": "Handles auto-provisioning of trivial tools/agents."
-      }
+      "spec": {}
     },
     "CEO-Agent": {
       "endpoint": "c_suite.ceo_agent.handle_request",
@@ -232,13 +228,72 @@
         },
         "type": "workflow_agent"
       }
+    },
+    "TestAgent": {
+      "endpoint": "test_agent.handle",
+      "certified": false,
+      "spec": {
+        "description": "A test agent",
+        "capabilities": [
+          "testing"
+        ]
+      }
+    },
+    "QuickResponderAgent": {
+      "endpoint": "quick_responder.handle",
+      "certified": false,
+      "spec": {
+        "description": "Responds quickly to simple queries.",
+        "capabilities": [
+          "faq",
+          "greeting"
+        ]
+      }
+    },
+    "TestLoadAgent": {
+      "endpoint": "test_load_agent.TestLoadAgent.handle_request",
+      "certified": true,
+      "spec": {
+        "description": "Test agent for loading verification",
+        "module": "orchestrator.agents.auto_provision_agent",
+        "class": "AutoProvisionAgent",
+        "type": "test_agent"
+      }
+    },
+    "PlaceholderTestAgent": {
+      "endpoint": "placeholder.handle",
+      "certified": false,
+      "spec": {
+        "description": "Test placeholder agent"
+      }
+    },
+    "AutoProvisionedTestAgent": {
+      "endpoint": "auto_provisioned.TestAgent.handle",
+      "certified": false,
+      "spec": {
+        "description": "Auto-provisioned test agent",
+        "module": "orchestrator.agents.auto_provision_agent",
+        "class": "AutoProvisionAgent",
+        "type": "auto_provisioned",
+        "created_by": "test_script"
+      }
+    },
+    "REPLDemoAgent": {
+      "endpoint": "repl_demo.REPLDemoAgent.handle",
+      "certified": false,
+      "spec": {
+        "description": "Demo agent added for REPL test",
+        "module": "orchestrator.agents.auto_provision_agent",
+        "class": "AutoProvisionAgent",
+        "type": "demo_agent",
+        "created_via": "repl_demo"
+      }
     }
   },
   "tools": {
     "NamecheapDomainAPI": {
       "url": "https://api.namecheap.com/xml.response",
-      "auth_type": "api_key",
-      "description": "API for domain registration and management through Namecheap"
+      "auth_type": "api_key"
     },
     "spreadsheet": {
       "description": "Auto-provisioned stub for tool: spreadsheet",
@@ -757,6 +812,67 @@
         }
       },
       "source": "auto-provisioned"
+    },
+    "TestSpreadsheetTool": {
+      "description": "A third test tool with yet another spec",
+      "webhook_url": "https://example.com/webhook/testspreadsheet_v3",
+      "methods": [
+        "PUT",
+        "DELETE"
+      ],
+      "version": "3.0"
+    },
+    "DummyEmailTool": {
+      "description": "A dummy tool for email operations",
+      "webhook_url": "https://api.example.com/email",
+      "methods": [
+        "POST"
+      ],
+      "payload_schema": {
+        "type": "object",
+        "properties": {
+          "to": {
+            "type": "string",
+            "format": "email"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "to",
+          "subject",
+          "body"
+        ]
+      },
+      "auth_type": "bearer_token",
+      "rate_limit": "100/hour",
+      "version": "1.0",
+      "created_by": "manual_test"
+    },
+    "SimpleSpreadsheetTool": {
+      "description": "A basic tool for spreadsheet operations",
+      "webhook_url": "https://n8n.local/webhook/simplespreadsheettool",
+      "methods": [
+        "POST"
+      ],
+      "payload_schema": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array"
+          }
+        }
+      }
     }
   }
 }
