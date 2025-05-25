@@ -12,10 +12,10 @@ import sys
 import logging
 from datetime import datetime
 
-# Add the orchestrator directory to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'orchestrator'))
+# Add the project root to the path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from orchestrator_agent import create_orchestrator
+from orchestrator.orchestrator_agent_refactored import create_orchestrator
 
 # Configure logging
 logging.basicConfig(

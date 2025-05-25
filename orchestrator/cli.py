@@ -6,6 +6,11 @@ import asyncio
 import logging
 import os
 import glob
+
+# Add project root to Python path for proper orchestrator package imports
+project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 from dotenv import load_dotenv
 from datetime import datetime
 from typing import Optional, List, Dict, Any
@@ -559,7 +564,7 @@ def display_mission_selection_menu() -> Optional[str]:
         else:
             console.print(f"[red]Invalid choice. Please enter 1-{len(resumable_missions)}, 'n', or 'q'[/red]")
 
-async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger, debug_mode: bool, resume_mission_log: Optional[OverallMissionLog] = None):
+async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger, debug_mode: bool, resume_mission_log: Optional[OverallMissionLog] = None, continuous_mode: bool = True, max_iterations: int = 10):
     """Runs the mission with the orchestrator, including CLI interactions for accept/reject."""
     if debug_mode:
         logger.setLevel(logging.DEBUG)
@@ -825,152 +830,73 @@ async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger
                     []
                 )
 
-            while True:
-                if current_decision_focus.upper() == "MISSION_COMPLETE":
-                    monitor.set_overall_status("Mission Deemed Complete by AI!", is_running=False)
-                    live.update(monitor.layout)
-                    rprint(Panel("[bold green]Mission Deemed Complete by AI![/bold green]"))
-                    break
-
-                monitor.set_overall_status(f"Cycle Focus: {current_decision_focus[:60]}...", is_running=True)
-                monitor.set_detail_activity("Orchestrator preparing for decision cycle...")
-                monitor.update(overall_mission_string)
-                
-                cycle_result = await orchestrator.execute_decision_cycle(
-                    current_decision_focus=current_decision_focus,
-                    mission_context={"overall_mission": overall_mission_string}
-                )
-                monitor.current_cycle_agents.clear()
-                monitor.add_agent(orchestrator.name)
-
-                # Add cycle result to overall log
-                overall_log.decision_cycles_summary.append(cycle_result)
-                total_mission_cost += cycle_result.get("total_cycle_cost", 0.0)
-                overall_log.total_mission_cost = total_mission_cost
-                overall_log.total_decision_cycles += 1
-                
-                # Update token counts and context in mission log
-                overall_log.total_input_tokens = monitor.total_input_tokens
-                overall_log.total_output_tokens = monitor.total_output_tokens
-                overall_log.current_decision_focus = current_decision_focus
-                
-                # Create descriptive last activity based on cycle outcome
-                if cycle_result.get("status", "").startswith("success"):
-                    if cycle_result.get("execution_result"):
-                        exec_type = cycle_result["execution_result"].get("execution_type", "unknown")
-                        overall_log.last_activity_description = f"Successfully executed {exec_type}: {current_decision_focus[:50]}..."
-                    else:
-                        overall_log.last_activity_description = f"Successfully completed: {current_decision_focus[:60]}..."
-                else:
-                    overall_log.last_activity_description = f"Working on: {current_decision_focus[:60]}..."
-
-                monitor.set_overall_status("Cycle Complete. Awaiting User Review.", is_running=False)
-                live.update(monitor.layout)
-                live.stop()
-
-                # Now that Live is stopped, print the static summary information below it.
-                outcome_to_display = cycle_result.get("execution_result") or cycle_result.get("recommendation") or {"info": "No specific execution or recommendation output."}
-                status_color = "green" if cycle_result.get("status", "").startswith("success") else "red"
-                
-                rprint(Panel(json.dumps(outcome_to_display, indent=2, default=str), 
-                             title=f"[bold {status_color}]Cycle Outcome for: {current_decision_focus[:60]}[/bold {status_color}]",
-                             border_style=status_color))
-                if cycle_result.get("error"):
-                    rprint(Panel(f"[bold red]Error in cycle:[/bold red] {cycle_result.get('error')}", title="Cycle Error"))
-
-                # Concise summary before prompting for action
-                summary_title = f"[bold yellow]Decision Point for: {current_decision_focus[:60]}...[/bold yellow]"
-                summary_content = "Proposed action/outcome summary:\n"
-                if cycle_result.get("execution_result") and isinstance(cycle_result["execution_result"], dict):
-                    exec_res = cycle_result["execution_result"]
-                    summary_content += exec_res.get("description", "No description available.")
-                    if exec_res.get("human_task_description"):
-                        summary_content += f"\n  [bold]Human Task:[/bold] {exec_res.get('human_task_description')}"
-                elif cycle_result.get("recommendation_text"):
-                    summary_content += cycle_result["recommendation_text"]
-                else:
-                    summary_content += "No specific action or recommendation was detailed for this cycle."
-                
-                # Ensure the summary panel is printed clearly before the prompt
-                console.print(Panel(Text(summary_content, style="yellow"), title=summary_title))
-                console.line() # Add a blank line for separation
-
-                # Determine if auto-acceptance is possible
-                action = ""
-                auto_accepted = False
-                if cycle_result.get("status", "").startswith("success") and \
-                   isinstance(cycle_result.get("execution_result"), dict) and \
-                   not cycle_result["execution_result"].get("human_task_description") and \
-                   not cycle_result.get("error"): # Also ensure no top-level error
-                    
-                    rprint(Panel("[bold green]Outcome Auto-Accepted[/bold green]: No human task required and cycle was successful.", 
-                                 title="[green]Auto-Acceptance[/green]"))
-                    console.line()
-                    action = "y"
-                    auto_accepted = True
-
-                if not auto_accepted:
-                    # live.stop() was already called before printing summaries
-                    action_prompt_text = "[bold]Action[/bold]: [Y]es to accept, [N]o to reject, or [Q]uit mission? (y/n/q)"
-                    action_choices = ["y", "n", "q"]
-                    action = Prompt.ask(action_prompt_text, choices=action_choices, default="y").lower()
-                
-                live.start() # Restart the live display after action is determined (auto or by prompt)
-
-                if action == "q":
-                    monitor.set_overall_status("Mission Terminated by User.", is_running=False)
-                    live.update(monitor.layout)
-                    rprint(Panel("[bold yellow]Mission Terminated by User.[/bold yellow]"))
-                    break
-                elif action == "y":
-                    if cycle_result.get("status", "").startswith("success") and cycle_result.get("execution_result"):
-                        execution_summary = cycle_result["execution_result"].get("description", "No description provided.")
-                        human_task = cycle_result["execution_result"].get("human_task_description")
-                        if human_task:
-                            execution_summary += f" (Human Task: {human_task})"
-                        
-                        accepted_cycle_outcomes_summary.append({
-                            "decision_focus": current_decision_focus,
-                            "execution_type": cycle_result["execution_result"].get("execution_type", "unknown_type"),
-                            "summary": execution_summary,
-                            "output_data": cycle_result["execution_result"].get("output_data")
-                        })
-                    else:
-                        summary_info = cycle_result.get("recommendation_text") or cycle_result.get("status", "unknown status")
-                        accepted_cycle_outcomes_summary.append({
-                            "decision_focus": current_decision_focus,
-                            "summary": summary_info 
-                        })
-
-                    monitor.set_overall_status("Outcome Accepted. Orchestrator determining next step...", is_running=True)
-                    live.update(monitor.layout); await asyncio.sleep(0.1)
-                    current_decision_focus = await orchestrator.determine_next_strategic_step(
-                        overall_mission_string, 
-                        accepted_cycle_outcomes_summary
-                    )
-                elif action == "n":
-                    live.stop()
-                    rejection_reason = Prompt.ask("  Please provide a brief reason for rejection")
-                    live.start()
-                    monitor.set_overall_status("Outcome Rejected. Orchestrator processing feedback...", is_running=True)
-                    live.update(monitor.layout); await asyncio.sleep(0.1)
-                    
-                    current_decision_focus = await orchestrator.revise_rejected_cycle(
-                        rejected_decision_focus=current_decision_focus,
-                        rejected_recommendation=cycle_result.get("recommendation_text"),
-                        rejected_execution_result=cycle_result.get("execution_output"),
-                        rejection_reason=rejection_reason,
-                        mission_context={"overall_mission": overall_mission_string},
-                        previous_accepted_cycles_summary=accepted_cycle_outcomes_summary 
-                    )
-                if action in ["y", "n"] and not current_decision_focus.upper() == "MISSION_COMPLETE" and not current_decision_focus.upper().startswith("MISSION_HALTED"):
-                    live.refresh()
-                else:
-                    overall_log.final_status = current_decision_focus.upper()
-                    live.update(monitor.layout)
-
-                if current_decision_focus.upper().startswith("MISSION_HALTED"):
-                    rprint(Panel(f"[bold red]Mission Halted:[/bold red] {current_decision_focus}", title="Mission Status"))
+            # C-SUITE ORCHESTRATED MODE - Run continuous C-Suite orchestration with workflow support
+            monitor.set_overall_status("Starting C-Suite Orchestrated Mission...", is_running=True)
+            monitor.update(overall_mission_string)
+            
+            mission_context = {
+                "overall_mission": overall_mission_string,
+                "accepted_cycles": accepted_cycle_outcomes_summary
+            }
+            
+            loop_results = await orchestrator.run_continuous_launch_growth_loop(
+                mission_context=mission_context,
+                max_iterations=max_iterations
+            )
+            
+            # Update mission log with continuous loop results
+            overall_log.total_mission_cost += loop_results.get("total_cost", 0.0)
+            overall_log.final_status = loop_results.get("final_status", "completed")
+            overall_log.last_activity_description = f"C-Suite orchestrated: {loop_results.get('successful_cycles', 0)} successful cycles, ${loop_results.get('total_revenue_generated', 0.0):.2f} revenue"
+            
+            # Convert continuous loop execution log to decision cycles format
+            execution_log = loop_results.get("execution_log", [])
+            for cycle_log in execution_log:
+                cycle_summary = {
+                    "cycle_id": f"csuite_cycle_{cycle_log.get('iteration', 0)}",
+                    "timestamp": cycle_log.get("timestamp", datetime.now().isoformat()),
+                    "decision_focus": f"C-Suite orchestrated iteration {cycle_log.get('iteration', 0)}",
+                    "status": "success" if cycle_log.get("cycle_successful", False) else "failed",
+                    "execution_output": {
+                        "execution_type": "csuite_orchestrated",
+                        "description": f"C-Suite planning + workflow execution: {', '.join(cycle_log.get('steps', {}).keys())}",
+                        "output_data": {
+                            "csuite_planning": cycle_log.get("csuite_planning", {}),
+                            "workflow_steps": cycle_log.get("steps", {}),
+                            "csuite_review": cycle_log.get("csuite_review", {}),
+                            "revenue_generated": cycle_log.get("revenue_generated", 0.0),
+                            "errors": cycle_log.get("errors", []),
+                            "guardrail_status": cycle_log.get("guardrail_status", "OK")
+                        }
+                    },
+                    "total_cycle_cost": 0.0,  # TODO: Calculate actual cost from workflow steps
+                    "recommendation_text": f"C-Suite cycle {cycle_log.get('iteration', 0)} - Strategic planning + {len(cycle_log.get('steps', {}))} workflow agents"
+                }
+                overall_log.decision_cycles_summary.append(cycle_summary)
+            
+            # Update total decision cycles count
+            overall_log.total_decision_cycles = len(overall_log.decision_cycles_summary)
+            
+            # Display results
+            monitor.set_overall_status(f"C-Suite Mission Complete: {loop_results.get('final_status', 'unknown')}", is_running=False)
+            live.update(monitor.layout)
+            live.stop()
+            
+            status_color = "green" if loop_results.get("status") == "completed" else "red"
+            rprint(Panel(
+                f"[bold]Mode:[/bold] C-Suite Orchestrated Mission\n"
+                f"[bold]Status:[/bold] {loop_results.get('final_status', 'unknown')}\n"
+                f"[bold]Iterations:[/bold] {loop_results.get('total_iterations', 0)}\n"
+                f"[bold]Successful Cycles:[/bold] {loop_results.get('successful_cycles', 0)}\n"
+                f"[bold]Failed Cycles:[/bold] {loop_results.get('failed_cycles', 0)}\n"
+                f"[bold]Revenue Generated:[/bold] ${loop_results.get('total_revenue_generated', 0.0):.2f}\n"
+                f"[bold]C-Suite Decisions:[/bold] {len(loop_results.get('csuite_decisions', []))}",
+                title=f"[bold {status_color}]Mission Results[/bold {status_color}]",
+                border_style=status_color
+            ))
+            
+            if loop_results.get("error"):
+                rprint(Panel(f"[bold red]Error:[/bold red] {loop_results.get('error')}", title="Execution Error"))
 
     except Exception as e:
         logger.error(f"Critical error during mission execution: {str(e)}", exc_info=True)
@@ -1000,10 +926,12 @@ async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger
 @click.argument('mission', required=False)
 @click.option('--debug', is_flag=True, help="Enable DEBUG level logging.")
 @click.option('--new', is_flag=True, help="Force start a new mission (skip resume menu).")
-@click.option('--continuous', is_flag=True, help="Run in continuous launch & growth loop mode.")
 @click.option('--max-iterations', default=10, help="Maximum iterations for continuous mode (default: 10).")
-def main(mission: Optional[str] = None, debug: bool = False, new: bool = False, continuous: bool = False, max_iterations: int = 10):
-    """Run an autonomous business mission with orchestrator and user interaction.
+def main(mission: Optional[str] = None, debug: bool = False, new: bool = False, max_iterations: int = 10):
+    """Run an autonomous business mission with C-Suite orchestration and workflow automation.
+    
+    The system runs in CONTINUOUS MODE where the C-Suite agents make strategic decisions
+    and workflow agents provide operational support when needed.
     
     On startup, you'll see a menu to either resume a previous mission or start a new one.
     The system shows the 5 most recent missions with their status and progress.
@@ -1013,9 +941,10 @@ def main(mission: Optional[str] = None, debug: bool = False, new: bool = False, 
     Options:
     --debug: Enable detailed debug logging
     --new: Skip the resume menu and force start a new mission
+    --max-iterations: Maximum iterations for continuous mode (default: 10)
     
     Examples:
-    python orchestrator/cli.py                    # Show resume menu
+    python orchestrator/cli.py                    # Standard C-Suite orchestrated mode
     python orchestrator/cli.py --new              # Force new mission
     python orchestrator/cli.py "Build an app"     # New mission with description
     """
@@ -1044,7 +973,7 @@ def main(mission: Optional[str] = None, debug: bool = False, new: bool = False, 
         )
     
     agent_logger = AgentLogger()
-    asyncio.run(run_mission_cli(mission, agent_logger, debug, resume_mission_log))
+    asyncio.run(run_mission_cli(mission, agent_logger, debug, resume_mission_log, True, max_iterations))
 
 if __name__ == "__main__":
     main() 

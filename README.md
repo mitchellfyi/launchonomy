@@ -171,10 +171,20 @@ launchonomy/
 ├── orchestrator/           # Core orchestration system
 │   ├── agents/            # Specialist agent implementations
 │   │   ├── auto_provision_agent.py  # Auto-provisioning logic
+│   │   ├── base_workflow_agent.py   # Base class for workflow agents
+│   │   ├── scan_agent.py            # Opportunity scanning agent
+│   │   ├── deploy_agent.py          # MVP deployment agent
+│   │   ├── campaign_agent.py        # Marketing campaign agent
+│   │   ├── analytics_agent.py       # Analytics and metrics agent
+│   │   ├── finance_agent.py         # Financial guardrails agent
+│   │   ├── growth_agent.py          # Growth optimization agent
 │   │   └── __init__.py
 │   ├── templates/         # Agent system prompts and schemas
 │   ├── cli.py            # Command line interface
-│   ├── orchestrator_agent.py  # Main orchestrator logic
+│   ├── orchestrator_agent_refactored.py  # Main orchestrator logic
+│   ├── agent_management.py          # Agent lifecycle management
+│   ├── agent_communication.py       # Agent communication layer
+│   ├── mission_management.py        # Mission and cycle logging
 │   ├── registry.py       # Agent and tool registry
 │   ├── consensus.py      # Consensus voting system
 │   ├── logging_utils.py  # Mission logging utilities
@@ -201,6 +211,42 @@ The system operates within strict constraints:
 - **Unanimous Voting**: No action taken without full agreement
 - **Human Oversight**: Critical decisions can be escalated
 - **Audit Trail**: Complete logging of all decisions and actions
+
+## Testing
+
+The system includes a comprehensive test suite located in the `tests/` directory. Tests are organized into categories:
+
+### Running Tests
+
+**Quick Test (No API Key Required):**
+```bash
+# Test core functionality without external dependencies
+python tests/test_agent_loading.py
+python tests/test_mission_linking.py
+python tests/test_continuous_loop_mock.py
+python tests/test_workflow_agents_registration.py
+python tests/test_repl_demo.py
+```
+
+**Full Test Suite (Requires OPENAI_API_KEY):**
+```bash
+# Set environment variable
+export OPENAI_API_KEY="your-api-key-here"
+
+# Run all tests
+for test in tests/test_*.py; do
+    echo "Running $test..."
+    python "$test"
+    echo "---"
+done
+```
+
+### Test Categories
+
+- **🟢 No API Key Required**: Core functionality, registry, mocks
+- **🟡 API Key Required**: Auto-provisioning, continuous loop, workflow agents
+
+See `tests/README.md` for detailed test documentation and troubleshooting.
 
 ## Contributing
 

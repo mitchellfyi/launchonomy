@@ -280,7 +280,7 @@ if __name__ == '__main__':
 
     registry = Registry()
 
-    registry.add_agent("OrchestrationAgent", endpoint="orchestrator_agent.OrchestrationAgent", certified=True)
+    registry.add_agent("OrchestrationAgent", endpoint="orchestrator_agent_refactored.OrchestrationAgent", certified=True)
     registry.add_agent("AutoProvisionAgent", endpoint="auto_provision_agent.AutoProvisionAgent.handle_trivial_request", certified=True)
     registry.add_tool("NamecheapDomainAPI", {"url": "https://api.namecheap.com/xml.response", "auth_type": "api_key"})
 
