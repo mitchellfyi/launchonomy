@@ -19,9 +19,17 @@ from rich import print as rprint
 from rich.spinner import Spinner
 from rich.text import Text
 from rich.columns import Columns
-from orchestrator_agent import create_orchestrator
+try:
+    from orchestrator.orchestrator_agent import create_orchestrator
+except ImportError:
+    # Fallback for when running from within orchestrator directory
+    from orchestrator_agent import create_orchestrator
 from autogen_ext.models.openai import OpenAIChatCompletionClient
-from logging_utils import OverallMissionLog, get_timestamp
+try:
+    from orchestrator.logging_utils import OverallMissionLog, get_timestamp
+except ImportError:
+    # Fallback for when running from within orchestrator directory
+    from logging_utils import OverallMissionLog, get_timestamp
 import re
 
 load_dotenv()

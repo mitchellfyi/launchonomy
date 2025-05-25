@@ -1,3 +1,5 @@
+# This file makes the 'agents' directory a Python package.
+
 from autogen_core import Agent
 
 def create_agent(role_name: str, persona: str, primer: str):

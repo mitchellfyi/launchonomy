@@ -1,0 +1,62 @@
+{
+  "agents": {
+    "OrchestrationAgent": {
+      "endpoint": "internal",
+      "certified": true,
+      "spec": {
+        "description": "The main orchestrator agent that manages other specialist AI agents to achieve business missions."
+      }
+    },
+    "AutoProvisionAgent": {
+      "endpoint": "auto_provision_agent.AutoProvisionAgent.handle_trivial_request",
+      "certified": true,
+      "spec": {
+        "description": "Handles auto-provisioning of trivial tools/agents."
+      }
+    }
+  },
+  "tools": {
+    "NamecheapDomainAPI": {
+      "url": "https://api.namecheap.com/xml.response",
+      "auth_type": "api_key",
+      "description": "API for domain registration and management through Namecheap"
+    },
+    "spreadsheet": {
+      "description": "Auto-provisioned stub for tool: spreadsheet",
+      "type": "webhook",
+      "endpoint_details": {
+        "url": "http://localhost:5678/webhook-test/spreadsheet-placeholder",
+        "method": "POST"
+      },
+      "authentication": {
+        "type": "none"
+      },
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "task_description": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "task_description"
+        ]
+      },
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          }
+        }
+      },
+      "source": "auto-provisioned"
+    }
+  }
+}

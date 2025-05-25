@@ -11,6 +11,13 @@ from dataclasses import dataclass, asdict, field # Added field
 from autogen_core import RoutedAgent
 from autogen_core.models import SystemMessage, UserMessage
 from autogen_ext.models.openai import OpenAIChatCompletionClient
+try:
+    from orchestrator.registry import Registry
+    from orchestrator.agents.auto_provision_agent import AutoProvisionAgent
+except ImportError:
+    # Fallback for when running from within orchestrator directory
+    from registry import Registry
+    from agents.auto_provision_agent import AutoProvisionAgent
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -88,6 +95,23 @@ class OrchestrationAgent(RoutedAgent):
         self.log_callback = None
         self.name = "OrchestrationAgent"
         self.last_revision_plan: Optional[str] = None # For decision loop
+
+        # New initializations for Registry and AutoProvisionAgent
+        self.registry = Registry() # Will load from orchestrator/registry.json
+        # Ensure AutoProvisionAgent is initialized correctly
+        self.auto_provision_agent = AutoProvisionAgent(registry=self.registry, coa=self)
+        
+        # Add self and AutoProvisionAgent to registry if not already there (for awareness)
+        # The endpoint for OrchestrationAgent itself isn't typically called like a specialist
+        if not self.registry.get_agent_spec(self.name):
+            self.registry.add_agent(name=self.name, endpoint="internal", certified=True, spec={"description": "The main orchestrator."})
+        if not self.registry.get_agent_spec(self.auto_provision_agent.name):
+            self.registry.add_agent(
+                name=self.auto_provision_agent.name, 
+                endpoint="auto_provision_agent.AutoProvisionAgent.handle_trivial_request", # As per previous setup
+                certified=True, 
+                spec={"description": "Handles auto-provisioning of trivial tools/agents."}
+            )
 
     def set_log_callback(self, callback):
         """Set callback for CLI logging."""
@@ -632,10 +656,31 @@ class OrchestrationAgent(RoutedAgent):
         agent_name = getattr(agent, 'name', 'UnnamedAgent')
         self._log(f"Attempting to execute recommendation via {agent_name}: '{recommendation[:100]}...'", "info")
         
+        # Check if recommendation mentions any tools and attempt to retrieve them from registry
+        available_tools = {}
+        tool_lookup_cost = 0.0
+        
+        # Simple keyword-based tool detection (could be enhanced with NLP)
+        potential_tool_keywords = ["tool", "api", "service", "webhook", "integration"]
+        if any(keyword in recommendation.lower() for keyword in potential_tool_keywords):
+            self._log("Recommendation mentions tools/APIs. Checking registry for available tools.", "debug")
+            
+            # For now, we'll just make available tools accessible in the execution context
+            # A more sophisticated approach would parse the recommendation to identify specific tool names
+            context = {"overall_mission": "execution_context", "recommendation": recommendation}
+            
+            # Example: if recommendation mentions "spreadsheet", try to get that tool
+            if "spreadsheet" in recommendation.lower():
+                spreadsheet_tool = await self._get_tool_from_registry("spreadsheet", context)
+                if spreadsheet_tool:
+                    available_tools["spreadsheet"] = spreadsheet_tool
+                    self._log("Spreadsheet tool found and made available for execution.", "info")
+        
         attempt_log_entry = {
             "timestamp": datetime.now().isoformat(),
             "agent_name": agent_name,
             "recommendation_to_execute": recommendation,
+            "available_tools": list(available_tools.keys()),
             "prompt": None, # Will be set below
             "raw_response": None,
             "parsed_json_output": None,
@@ -643,9 +688,20 @@ class OrchestrationAgent(RoutedAgent):
             "error": None
         }
 
+        # Build execution prompt with available tools information
+        tools_info = ""
+        if available_tools:
+            tools_info = f"\n\nAVAILABLE TOOLS:\n"
+            for tool_name, tool_spec in available_tools.items():
+                tools_info += f"- {tool_name}: {tool_spec.get('description', 'No description available')}\n"
+                if 'endpoint_details' in tool_spec:
+                    endpoint = tool_spec['endpoint_details']
+                    tools_info += f"  Endpoint: {endpoint.get('method', 'POST')} {endpoint.get('url', 'No URL')}\n"
+            tools_info += "You can reference these tools in your execution plan.\n"
+
         execution_prompt = (
             f"You are to facilitate the EXECUTION of the following recommendation in a REAL-WORLD context for an online business. This is not a simulation.\\n\\n"
-            f"Final Recommendation:\\n'''{recommendation}'''\n\n"
+            f"Final Recommendation:\\n'''{recommendation}'''{tools_info}\n\n"
             f"Consider the following:\\n"
             f"1. Can this task be FULLY automated by you (an AI with text capabilities) and completed NOW? If so, describe the exact steps you are taking as if you are performing them, and then provide the outcome.\\n"
             f"2. Does this task require coding, API interaction, or filesystem operations that you cannot directly perform? If so, clearly state what code needs to be written, what API needs to be called (with example parameters if possible), or what manual operation is needed. Frame this as a request for another specialist (e.g., a 'CodeExecutionAgent') or for the 'Human User'.\n"
@@ -664,7 +720,7 @@ class OrchestrationAgent(RoutedAgent):
             f"Focus on practical, real-world execution or clear handoff. Ensure the output is ONLY the JSON object itself."
         )
         attempt_log_entry["prompt"] = execution_prompt
-        total_cost_for_execution = 0.0
+        total_cost_for_execution = tool_lookup_cost  # Include any cost from tool lookups
 
         try:
             # _get_json_response handles JSON extraction, retries, and logging to json_parsing_logs.
@@ -729,7 +785,7 @@ class OrchestrationAgent(RoutedAgent):
                                            decision: str, 
                                            agent_management_logs: List[dict],
                                            json_parsing_logs: List[dict]
-                                           ) -> Tuple[RoutedAgent, float, float]: # Returns: Agent, Confidence, Cost
+                                           ) -> Tuple[Optional[RoutedAgent], float, float]: # Agent, Confidence, Cost
         """Select an existing agent or create a new one. Logs creation/selection events."""
         accumulated_cost = 0.0
         selection_event = {
@@ -1148,6 +1204,140 @@ class OrchestrationAgent(RoutedAgent):
             review_interaction_logs.append(review_log_entry) # Log after each review attempt
             
         return all_reviews_from_batch, accumulated_review_cost
+
+    async def _get_tool_from_registry(self, tool_name: str, context: Optional[Dict] = None) -> Optional[Dict[str, Any]]:
+        """
+        Retrieves a tool from the registry. If not found, attempts auto-provisioning via AutoProvisionAgent.
+        Returns the tool spec if found/provisioned, None otherwise.
+        """
+        self._log(f"Looking up tool '{tool_name}' in registry.", "debug")
+        
+        # First, check if tool exists in registry
+        tool_spec = self.registry.get_tool_spec(tool_name)
+        if tool_spec:
+            self._log(f"Tool '{tool_name}' found in registry.", "info")
+            return tool_spec
+        
+        # Tool not found, attempt auto-provisioning
+        self._log(f"Tool '{tool_name}' not found in registry. Attempting auto-provisioning.", "info")
+        
+        missing_item_details = {
+            "type": "tool",
+            "name": tool_name,
+            "reason": "not_found",
+            "details": f"Tool '{tool_name}' was requested but not found in registry."
+        }
+        
+        try:
+            auto_provision_result = await self.auto_provision_agent.handle_trivial_request(
+                context or {}, missing_item_details
+            )
+            
+            if auto_provision_result:
+                self._log(f"Auto-provisioning successful for tool '{tool_name}': {auto_provision_result}", "info")
+                # Re-check registry after auto-provisioning
+                tool_spec = self.registry.get_tool_spec(tool_name)
+                return tool_spec
+            else:
+                self._log(f"Auto-provisioning declined for tool '{tool_name}' (not trivial or rejected).", "warning")
+                return None
+                
+        except Exception as e:
+            self._log(f"Error during auto-provisioning attempt for tool '{tool_name}': {str(e)}", "error")
+            return None
+
+    async def vote_on(self, proposal: Dict[str, Any]) -> str:
+        """
+        The orchestrator's vote on a proposal. Returns 'yes' or 'no'.
+        For now, the orchestrator approves valid add_tool/add_agent proposals.
+        """
+        proposal_type = proposal.get("type")
+        proposal_name = proposal.get("name")
+        proposal_spec = proposal.get("spec")
+        
+        self._log(f"Orchestrator voting on proposal: {proposal_type} '{proposal_name}'", "debug")
+        
+        # Basic validation
+        if not proposal_type or not proposal_name or not proposal_spec:
+            self._log(f"Invalid proposal structure. Voting 'no'.", "warning")
+            return "no"
+        
+        # For now, approve valid add_tool and add_agent proposals
+        if proposal_type in ["add_tool", "add_agent"]:
+            # Could add more sophisticated validation here
+            if isinstance(proposal_spec, dict) and proposal_spec.get("source") == "auto-provisioned":
+                self._log(f"Orchestrator approves auto-provisioned {proposal_type} '{proposal_name}'.", "info")
+                return "yes"
+            else:
+                self._log(f"Orchestrator approves {proposal_type} '{proposal_name}'.", "info")
+                return "yes"
+        
+        self._log(f"Unknown proposal type '{proposal_type}'. Voting 'no'.", "warning")
+        return "no"
+
+    async def propose_and_vote(self, proposal: Dict[str, Any]) -> str:
+        """
+        Orchestrates the consensus voting process for a proposal.
+        Collects votes from self and available agents, returns 'accepted' or 'rejected'.
+        """
+        proposal_type = proposal.get("type")
+        proposal_name = proposal.get("name")
+        
+        self._log(f"Starting consensus vote for proposal: {proposal_type} '{proposal_name}'", "info")
+        
+        votes = []
+        
+        # Get orchestrator's own vote
+        try:
+            orchestrator_vote = await self.vote_on(proposal)
+            votes.append(("OrchestrationAgent", orchestrator_vote))
+            self._log(f"OrchestrationAgent vote: {orchestrator_vote}", "debug")
+        except Exception as e:
+            self._log(f"Error getting orchestrator vote: {str(e)}", "error")
+            votes.append(("OrchestrationAgent", "no"))  # Default to no on error
+        
+        # Get votes from specialist agents
+        for agent_name, agent_instance in self.agents.items():
+            if agent_name == self.name:  # Skip self
+                continue
+                
+            try:
+                # Check if agent has a vote_on method
+                if hasattr(agent_instance, 'vote_on') and callable(agent_instance.vote_on):
+                    agent_vote = await agent_instance.vote_on(proposal)
+                    votes.append((agent_name, agent_vote))
+                    self._log(f"{agent_name} vote: {agent_vote}", "debug")
+                else:
+                    # For proposals from AutoProvisionAgent, default to 'yes' for other agents
+                    # This assumes that if AutoProvisionAgent deemed it trivial, other agents would likely agree
+                    if proposal.get("spec", {}).get("source") == "auto-provisioned":
+                        default_vote = "yes"
+                        votes.append((agent_name, default_vote))
+                        self._log(f"{agent_name} (no vote_on method) defaults to: {default_vote} for auto-provisioned item", "debug")
+                    else:
+                        # For non-auto-provisioned proposals, be more conservative
+                        default_vote = "no"
+                        votes.append((agent_name, default_vote))
+                        self._log(f"{agent_name} (no vote_on method) defaults to: {default_vote}", "debug")
+                        
+            except Exception as e:
+                self._log(f"Error getting vote from {agent_name}: {str(e)}", "warning")
+                votes.append((agent_name, "no"))  # Default to no on error
+        
+        # Count votes
+        yes_votes = [vote for _, vote in votes if vote.lower() == "yes"]
+        total_votes = len(votes)
+        
+        self._log(f"Vote results: {len(yes_votes)}/{total_votes} yes votes", "info")
+        
+        # Require unanimous approval for now (can be adjusted)
+        if len(yes_votes) == total_votes and total_votes > 0:
+            result = "accepted"
+        else:
+            result = "rejected"
+        
+        self._log(f"Consensus result for {proposal_type} '{proposal_name}': {result}", "info")
+        return result
 
 # Factory function to create orchestrator (if needed by CLI or other parts)
 def create_orchestrator(client: Optional[OpenAIChatCompletionClient] = None) -> OrchestrationAgent:

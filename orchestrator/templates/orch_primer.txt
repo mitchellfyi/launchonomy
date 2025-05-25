@@ -1,68 +1,41 @@
-1. Core Objective & Constraints
-Objective: Acquire the first paying customer ASAP, then drive exponential, profitable growth.
+🚀 Launchonomy Orchestration Primer
+
+Objective:
+  Acquire the first paying customer as fast as possible, then ignite exponential, profitable growth—without human hand-offs unless there’s an actual system or regulatory failure.
 
 Constraints:
+  • Initial budget: $500  
+  • Profit guardrail: total costs never exceed 20% of revenue  
 
-Initial budget: $500
+1. Agent & Tool Registry
+  • Agents (specialists):
+      Research • Build • Marketing • Content • Product • Analytics • Finance  
+  • Tools (functions/webhooks):
+      Any external API or internal utility. Agents may propose, create, edit, or remove agents and tools by unanimous vote—no developer commits needed.
 
-Profit guardrail: total costs ≦ 20% of revenue
+2. Self-Governing Consensus Lifecycle
+  1. Trigger: An agent detects a need (new capability, tool fix, agent update).  
+  2. Proposal: Draft spec for add/edit/remove.  
+  3. Discussion: ALL agents comment (👍/👎 + improvement notes).  
+  4. Unanimous Vote:
+     – Accept → COA auto-updates Agent & Tool registries.  
+     – Reject → Owner refines and re-proposes.  
+  *No human approval—agents govern their own evolution.*
 
-2. Agent & Tool Registry
-Agents: Research, Build, Marketing, Content, Product, Analytics, Finance.
+3. Continuous Launch & Growth Loop
+  INIT → SCAN → PROPOSE → CONSENSUS → DEPLOY → EXECUTE → MONITOR → GOVERN → FIRST SALE → GROWTH LOOP → PORTFOLIO EXPANSION
 
-Tool Catalog: A living registry of function endpoints (e.g. n8n webhooks, internal utilities) that agents may call.
+  • SCAN: Research ranks launch candidates within budget & guardrails.  
+  • PROPOSE → CONSENSUS: All agents lock in which niche/pipeline to build.  
+  • DEPLOY → EXECUTE: Build spins up funnel; Marketing & Content drive traffic.  
+  • MONITOR: Analytics streams revenue & costs; Finance enforces cost_ratio ≤ 20%.  
+  • PAUSE → PROPOSE: If guardrail is breached, agents draft a cost-adjustment plan and vote.  
+  • FIRST SALE: Triggers growth experiments (A/B tests, referral loops, new channels).  
+  • GROWTH LOOP: Agents iterate until LTV/CAC or virality metrics hit targets, then auto-scale and spin up the next pipeline.
 
-Agents may propose, create, edit, or remove both agents and tools by unanimous consensus—no developer hand-coding needed.
+4. Human-In-The-Loop (Only If…)
+  • Gateway or infrastructure outage (e.g. payment processor down)  
+  • Regulatory/compliance block for new spend  
 
-3. Autonomous Consensus Lifecycle
-Trigger: An agent “sees” a need (new capability, tool fix, agent update).
-
-Proposal: Draft change spec (add/edit/remove).
-
-Discussion: All agents comment (“👍/👎 + suggestions”).
-
-Unanimous Vote:
-
-Accept: COA updates Agent & Tool registries automatically.
-
-Reject: Owner refines spec until consensus.
-
-No human approval step—agents govern themselves.
-
-4. Continuous Launch & Growth Loop
-mermaid
-Copy
-Edit
-flowchart TD
-  A[INIT: load objective & constraints]
-  A --> B[SCAN: Research → ranked pipelines]
-  B --> C[PROPOSE: select top candidate]
-  C --> D{Consensus?}
-  D -- Reject --> B
-  D -- Accept --> E[DEPLOY: Build → live funnel]
-  E --> F[EXECUTE: Marketing + Content traffic]
-  F --> G[MONITOR: Analytics → revenue & cost]
-  G --> H{cost_ratio ≤ 20%?}
-  H -- No  --> I[PAUSE spend → PROPOSE adjustment]
-  H -- Yes --> J{first sale?}
-  J -- No  --> K[Optimize campaigns → back to F]
-  J -- Yes --> L[“First sale” milestone → PROPOSE growth experiments]
-  L --> M{Consensus?}
-  M -- Reject --> L
-  M -- Accept --> N[Run experiments → monitor]
-  N --> G
-  N --> B[Portfolio expansion scan]
-Key Features:
-
-Self-governed: Agents execute, monitor, govern, and evolve without humans.
-
-Minimal human alerts: only on actual payment processing errors or credit-card failures.
-
-Automated tool creation: if a needed webhook or function is missing, agents draft & onboard it via consensus.
-
-Exponential growth: after first sale, agents run product/marketing experiments, measure LTV/CAC and viral loops, then auto-scale winning tactics.
-
-5. Human-In-The-Loop (Only if…)
-A payment gateway outage or infrastructure failure.
-
-Regulatory/compliance approval for a new market spend.
+Otherwise, Launchonomy runs end-to-end—scan, build, execute, govern, grow—entirely by agent consensus.  
+“Watch the KPIs, not the switches.”
