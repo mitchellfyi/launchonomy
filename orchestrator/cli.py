@@ -25,6 +25,7 @@ except ImportError:
     # Fallback for when running from within orchestrator directory
     from orchestrator_agent import create_orchestrator
 from autogen_ext.models.openai import OpenAIChatCompletionClient
+from typing import Any, AsyncIterator
 try:
     from orchestrator.logging_utils import OverallMissionLog, get_timestamp
 except ImportError:
@@ -44,6 +45,51 @@ logging.basicConfig(
     handlers=[RichHandler(rich_tracebacks=True, console=console)]
 )
 logger = logging.getLogger("cli")
+
+class TokenTrackingOpenAIClient:
+    """Wrapper around OpenAIChatCompletionClient that tracks token usage."""
+    
+    def __init__(self, client: OpenAIChatCompletionClient, monitor: 'MissionMonitor'):
+        self._client = client
+        self._monitor = monitor
+    
+    def __getattr__(self, name):
+        """Delegate all other attributes to the wrapped client."""
+        return getattr(self._client, name)
+    
+    async def create(self, messages, **kwargs):
+        """Wrap the create method to track token usage."""
+        try:
+            response = await self._client.create(messages, **kwargs)
+            
+            # Extract token usage from response - try different possible attribute names
+            usage = None
+            if hasattr(response, 'usage'):
+                usage = response.usage
+            elif hasattr(response, 'token_usage'):
+                usage = response.token_usage
+            elif hasattr(response, 'usage_metadata'):
+                usage = response.usage_metadata
+            
+            if usage:
+                # Try different possible attribute names for token counts
+                input_tokens = (getattr(usage, 'prompt_tokens', 0) or 
+                              getattr(usage, 'input_tokens', 0) or 
+                              getattr(usage, 'prompt_token_count', 0))
+                output_tokens = (getattr(usage, 'completion_tokens', 0) or 
+                               getattr(usage, 'output_tokens', 0) or 
+                               getattr(usage, 'completion_token_count', 0))
+                
+                if input_tokens > 0 or output_tokens > 0:
+                    self._monitor.add_tokens(input_tokens, output_tokens)
+                    logger.debug(f"Token usage tracked: {input_tokens} input, {output_tokens} output")
+            else:
+                logger.debug("No token usage information found in response")
+            
+            return response
+        except Exception as e:
+            logger.error(f"Error in OpenAI API call: {e}")
+            raise
 
 class AgentLogger:
     def __init__(self):
@@ -70,8 +116,8 @@ class MissionMonitor:
         self.layout = Layout()
         self.layout.split_column(
             Layout(name="mission", size=3),
-            Layout(name="status", size=7),  # Increased from 5 to 7 for expanded status
-            Layout(name="agents", size=10),
+            Layout(name="status", size=5),  # Set to 5 lines
+            Layout(name="agents", size=7),
             Layout(name="logs", ratio=1)
         )
         self.logs = []
@@ -89,6 +135,9 @@ class MissionMonitor:
         # Token tracking
         self.total_input_tokens = 0
         self.total_output_tokens = 0
+        
+        # Tools in use tracking
+        self.tools_in_use = set()
 
     def set_overall_status(self, message: str, is_running: bool):
         self._overall_status_message = message
@@ -114,6 +163,15 @@ class MissionMonitor:
         """Add token usage to the running total."""
         self.total_input_tokens += input_tokens
         self.total_output_tokens += output_tokens
+        logger.debug(f"Tokens added: +{input_tokens} input, +{output_tokens} output. Total: {self.total_input_tokens} input, {self.total_output_tokens} output")
+    
+    def add_tool_in_use(self, tool_name: str):
+        """Add a tool to the active tools list."""
+        self.tools_in_use.add(tool_name)
+    
+    def remove_tool_in_use(self, tool_name: str):
+        """Remove a tool from the active tools list."""
+        self.tools_in_use.discard(tool_name)
         
     def add_log(self, message: str, msg_type: str = "info"):
         timestamp = datetime.now().strftime("%H:%M:%S")
@@ -124,7 +182,7 @@ class MissionMonitor:
 
         # Update brief activity log for UI (excluding debug, truncating others)
         if msg_type != "debug":
-            max_brief_len = 80
+            max_brief_len = 400  # Approximately 80 chars per line * 5 lines
             brief_log_entry = message # Use message directly, not full_log_entry with timestamp
             if len(brief_log_entry) > max_brief_len:
                 brief_log_entry = brief_log_entry[:max_brief_len-3] + "..."
@@ -265,35 +323,51 @@ class MissionMonitor:
                 agents_csv.append(", ", style="dim")
             agents_csv.append(agent_name, style="cyan")
         
-        # Add tools information on separate lines
+        # Add agents information
         agents_content = Text()
         agents_content.append("Agents: ", style="bold white")
         agents_content.append(agents_csv)
         
-        # Add tools count if orchestrator is available
-        if self.orchestrator and hasattr(self.orchestrator, 'registry'):
-            tool_count = len(self.orchestrator.registry.list_tool_names())
-            agents_content.append(f"\n\nTools Available: ", style="bold white")
-            agents_content.append(f"{tool_count} tools", style="magenta")
-            
-            # Show some example tools
-            tool_names = self.orchestrator.registry.list_tool_names()
-            if tool_names:
-                example_tools = tool_names[:5]  # Show first 5 tools
-                agents_content.append(f"\nExamples: ", style="dim")
-                for i, tool in enumerate(example_tools):
-                    if i > 0:
-                        agents_content.append(", ", style="dim")
-                    agents_content.append(tool, style="yellow")
-                if len(tool_names) > 5:
-                    agents_content.append(f", +{len(tool_names)-5} more", style="dim")
+        # Show tools in use (if any are being actively used)
+        if self.tools_in_use:
+            agents_content.append(f"\n\nTools in Use: ", style="bold white")
+            tools_csv = Text()
+            sorted_tools = sorted(self.tools_in_use)
+            for i, tool in enumerate(sorted_tools):
+                if i > 0:
+                    tools_csv.append(", ", style="dim")
+                tools_csv.append(tool, style="yellow")
+            agents_content.append(tools_csv)
+        else:
+            # Show a simple indicator that no tools are currently active
+            agents_content.append(f"\n\nTools in Use: ", style="bold white")
+            agents_content.append("None active", style="dim")
         
         self.layout["agents"].update(
-            Panel(agents_content, title="Known Agents & Tools")
+            Panel(agents_content, title="Known Agents")
         )
+        # Format activity log with colored agent names
+        log_content = Text()
+        
+        for i, entry in enumerate(self.brief_activity_log):
+            if i > 0:
+                log_content.append("\n")
+            
+            # Extract agent name and message for coloring
+            if ": " in entry:
+                agent_name, message = entry.split(": ", 1)
+                
+                # Color all agent names in cyan (same as Known Agents panel)
+                log_content.append(agent_name, style="cyan")
+                log_content.append(": ", style="dim")
+                log_content.append(message)
+            else:
+                # No agent name found, use plain text
+                log_content.append(entry)
+        
         self.layout["logs"].update(
             Panel(
-                Text("\n".join(self.brief_activity_log)), # Use the new brief_activity_log
+                log_content,
                 title="Recent Activity Log"
             )
         )
@@ -330,8 +404,12 @@ async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger
             model=model_name
         )
 
-        orchestrator = create_orchestrator(client=openai_client)
         monitor = MissionMonitor()
+        
+        # Create token tracking wrapper
+        token_tracking_client = TokenTrackingOpenAIClient(openai_client, monitor)
+        
+        orchestrator = create_orchestrator(client=token_tracking_client)
         monitor.set_orchestrator(orchestrator)  # Set orchestrator reference for registry access
         
         with Live(monitor.layout, refresh_per_second=10, console=console, vertical_overflow="visible") as live:
@@ -343,29 +421,35 @@ async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger
                 if not live.is_started: 
                     agent_logger.log_agent(agent_name, msg, msg_type)
                 
-                # Extract token usage from log messages if present
-                import re
-                token_match = re.search(r'Cost for .* (\d+) input tokens, (\d+) output tokens', msg)
-                if not token_match:
-                    token_match = re.search(r'(\d+) input.*?(\d+) output.*?tokens', msg)
-                if not token_match:
-                    # Look for cost information that might indicate token usage
-                    cost_match = re.search(r'cost.*?(\d+\.?\d*)', msg.lower())
-                    if cost_match:
-                        # Estimate tokens from cost (rough approximation: $0.0001 per 1000 tokens)
-                        cost = float(cost_match.group(1))
-                        estimated_tokens = int(cost * 10000)  # Very rough estimate
-                        monitor.add_tokens(estimated_tokens // 2, estimated_tokens // 2)
+                # Token tracking is now handled by TokenTrackingOpenAIClient wrapper
                 
-                if token_match:
-                    input_tokens = int(token_match.group(1))
-                    output_tokens = int(token_match.group(2))
-                    monitor.add_tokens(input_tokens, output_tokens)
+                # Extract tool usage from log messages
+                tool_usage_patterns = [
+                    r'using tool[:\s]+(\w+)',
+                    r'calling tool[:\s]+(\w+)',
+                    r'executing tool[:\s]+(\w+)',
+                    r'tool[:\s]+(\w+)[:\s]+(?:called|executed|used)',
+                    r'(?:spreadsheet|calendar|email|crm|analytics|payment|webhook|api|database)',
+                ]
+                
+                # Check for specific tool mentions
+                for pattern in tool_usage_patterns:
+                    tool_match = re.search(pattern, msg.lower())
+                    if tool_match:
+                        if tool_match.groups():
+                            tool_name = tool_match.group(1)
+                        else:
+                            tool_name = tool_match.group(0)
+                        monitor.add_tool_in_use(tool_name)
+                        break
+                
+                # Check for tool completion/stopping
+                if any(phrase in msg.lower() for phrase in ['tool completed', 'tool finished', 'tool stopped']):
+                    # Could extract specific tool name and remove it, but for now just note completion
+                    pass
                 
                 # The rest of log_patch logic for updating monitor panels remains the same
                 monitor.add_log(f"{agent_name}: {msg}", msg_type)
-                current_activity_detail = f"{agent_name}: {msg}"  # Remove truncation here, let set_detail_activity handle it
-                monitor.set_detail_activity(current_activity_detail)
 
                 if agent_name not in monitor.current_cycle_agents:
                     monitor.add_agent(agent_name)
@@ -386,55 +470,83 @@ async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger
                             logger.debug(f"Detected and added confirmed agent from log: {new_agent_name}")
                 
                 new_overall_status = ""
+                activity_detail = ""
                 is_processing = True 
 
                 if "MISSION_COMPLETE" in msg:
                     new_overall_status = "Mission Complete!"
+                    activity_detail = f"{agent_name}: {msg}"
                     is_processing = False
                 elif "MISSION_HALTED" in msg:
                     new_overall_status = "Mission Halted!"
+                    activity_detail = f"{agent_name}: {msg}"
                     is_processing = False
                 elif msg == "Cycle Complete. Awaiting User Review.": 
                     new_overall_status = msg
+                    activity_detail = "Waiting for user decision on cycle outcome"
                     is_processing = False
                 elif agent_name == orchestrator.name:
                     if "Determining next strategic step" in msg:
                         new_overall_status = "Orchestrator: Planning next strategy..."
+                        activity_detail = f"Analyzing previous cycles and determining next strategic step"
                     elif "Revising rejected cycle" in msg:
                         new_overall_status = "Orchestrator: Revising plan after feedback..."
+                        activity_detail = f"Processing user feedback and revising approach"
                     elif "Selecting or creating specialist" in msg:
                         new_overall_status = "Orchestrator: Delegating to specialist..."
+                        activity_detail = f"Finding or creating appropriate specialist agent"
                     elif "Starting decision loop with" in msg:
                         match = re.search(r"Starting decision loop with (\w+)", msg)
                         specialist = match.group(1) if match else "specialist"
                         new_overall_status = f"Orchestrator: Consulting {specialist}..."
+                        activity_detail = f"Running decision loop with {specialist} for recommendations"
                     elif "Assigning execution task to" in msg:
                         match = re.search(r"Assigning execution task to (\w+)", msg)
                         executor = match.group(1) if match else "agent"
                         new_overall_status = f"Orchestrator: Tasking {executor}..."
+                        activity_detail = f"Delegating execution task to {executor}"
                     elif "Attempting to execute recommendation via" in msg:
                         match = re.search(r"via (\w+)", msg)
                         executor = match.group(1) if match else "agent"
                         new_overall_status = f"Orchestrator: {executor} executing..."
+                        activity_detail = f"{executor} is executing the recommended action"
                     elif "Performing final smoke-test review" in msg:
                         new_overall_status = "Orchestrator: Reviewing outcome..."
+                        activity_detail = f"Conducting final review of execution results"
                     elif "Archiving cycle log and running retrospective" in msg:
                         new_overall_status = "Orchestrator: Finalizing cycle..."
+                        activity_detail = f"Archiving logs and running retrospective analysis"
+                    elif "Asking" in msg and "Agent" in msg:
+                        # Handle agent communication messages
+                        agent_match = re.search(r"Asking (\w+[-]?\w*)", msg)
+                        if agent_match:
+                            target_agent = agent_match.group(1)
+                            new_overall_status = f"Orchestrator: Consulting {target_agent}..."
+                            activity_detail = f"Requesting input from {target_agent}"
+                        else:
+                            activity_detail = f"{agent_name}: {msg}"
+                    else:
+                        activity_detail = f"{agent_name}: {msg}"
                 elif agent_name != orchestrator.name: 
                     if "Executing task:" in msg or "Executing an task:" in msg :
                         new_overall_status = f"{agent_name}: Executing task..."
+                        activity_detail = f"{agent_name} is working on assigned task"
                     elif "Task complete" in msg or "Task finished" in msg:
                         new_overall_status = f"{agent_name}: Task finished."
+                        activity_detail = f"{agent_name} has completed their assigned task"
                     elif "Error during execution" in msg:
                         new_overall_status = f"{agent_name}: Error reported."
+                        activity_detail = f"{agent_name}: {msg}"
+                    else:
+                        activity_detail = f"{agent_name}: {msg}"
                 
-                if not new_overall_status: 
-                    max_len = 70
-                    truncated_msg = msg[:max_len] + "..." if len(msg) > max_len else msg
-                    new_overall_status = f"{agent_name}: {truncated_msg}"
-
-                if new_overall_status != monitor._overall_status_message:
-                     monitor.set_overall_status(new_overall_status, is_running=is_processing)
+                # Only update overall status if we have a specific one, otherwise keep current
+                if new_overall_status and new_overall_status != monitor._overall_status_message:
+                    monitor.set_overall_status(new_overall_status, is_running=is_processing)
+                
+                # Always update activity detail if we have one
+                if activity_detail:
+                    monitor.set_detail_activity(activity_detail)
 
                 monitor.update(overall_mission_string)
 
