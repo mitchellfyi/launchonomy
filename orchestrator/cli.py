@@ -5,13 +5,14 @@ import json
 import asyncio
 import logging
 import os
+import glob
 from dotenv import load_dotenv
 from datetime import datetime
 from typing import Optional, Union, List, Dict, Any
 import click
 from rich.console import Console
 from rich.logging import RichHandler
-from rich.prompt import Prompt
+from rich.prompt import Prompt, Confirm
 from rich.live import Live
 from rich.panel import Panel
 from rich.layout import Layout
@@ -19,6 +20,7 @@ from rich import print as rprint
 from rich.spinner import Spinner
 from rich.text import Text
 from rich.columns import Columns
+from rich.table import Table
 try:
     from orchestrator.orchestrator_agent import create_orchestrator
 except ImportError:
@@ -372,21 +374,216 @@ class MissionMonitor:
             )
         )
 
-async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger, debug_mode: bool):
+def load_mission_log(mission_file_path: str) -> Optional[OverallMissionLog]:
+    """Load a mission log from a JSON file."""
+    try:
+        with open(mission_file_path, 'r') as f:
+            data = json.load(f)
+        
+        # Convert dict back to OverallMissionLog dataclass
+        mission_log = OverallMissionLog(
+            mission_id=data["mission_id"],
+            timestamp=data["timestamp"],
+            overall_mission=data["overall_mission"],
+            final_status=data.get("final_status", "Initialized"),
+            total_mission_cost=data.get("total_mission_cost", 0.0),
+            total_decision_cycles=data.get("total_decision_cycles", 0),
+            total_input_tokens=data.get("total_input_tokens", 0),
+            total_output_tokens=data.get("total_output_tokens", 0),
+            decision_cycles_summary=data.get("decision_cycles_summary", []),
+            created_agents=data.get("created_agents", []),
+            current_decision_focus=data.get("current_decision_focus"),
+            last_activity_description=data.get("last_activity_description"),
+            kpi_outcomes=data.get("kpi_outcomes", {}),
+            error_message=data.get("error_message"),
+            retrospective_analysis=data.get("retrospective_analysis", {})
+        )
+        return mission_log
+    except Exception as e:
+        logger.error(f"Failed to load mission log from {mission_file_path}: {e}")
+        return None
+
+def format_token_count(tokens: int) -> str:
+    """Format token count in human-friendly format."""
+    if tokens == 0:
+        return "0"
+    elif tokens < 1000:
+        return str(tokens)
+    elif tokens < 1000000:
+        return f"~{round(tokens/1000)}k"
+    else:
+        return f"~{tokens/1000000:.1f}M"
+
+def get_recent_missions(limit: int = 5) -> List[Dict[str, Any]]:
+    """Get the most recent mission logs with summary information."""
+    mission_files = glob.glob("mission_logs/mission_*.json")
+    
+    # Sort by modification time (most recent first)
+    mission_files.sort(key=os.path.getmtime, reverse=True)
+    
+    recent_missions = []
+    for mission_file in mission_files[:limit]:
+        mission_log = load_mission_log(mission_file)
+        if mission_log:
+            # Create a summary for display
+            summary = {
+                "file_path": mission_file,
+                "mission_id": mission_log.mission_id,
+                "mission": mission_log.overall_mission,
+                "status": mission_log.final_status,
+                "cycles": mission_log.total_decision_cycles,
+                "cost": mission_log.total_mission_cost,
+                "timestamp": mission_log.timestamp,
+                "last_modified": datetime.fromtimestamp(os.path.getmtime(mission_file)).strftime("%Y-%m-%d %H:%M:%S")
+            }
+            
+            # Determine if mission can be resumed
+            resumable_statuses = ["started", "ended_unexpectedly", "CRITICAL_ERROR"]
+            summary["can_resume"] = mission_log.final_status in resumable_statuses
+            
+            # Get last activity description - prefer the stored description, fallback to decision focus
+            if mission_log.last_activity_description:
+                last_activity = mission_log.last_activity_description
+            elif mission_log.current_decision_focus:
+                last_activity = f"Working on: {mission_log.current_decision_focus}"
+            elif mission_log.decision_cycles_summary:
+                last_cycle = mission_log.decision_cycles_summary[-1]
+                last_activity = last_cycle.get("decision_focus", "Unknown activity")
+            else:
+                last_activity = "No cycles completed"
+            
+            # Truncate long descriptions
+            if len(last_activity) > 80:
+                summary["last_activity"] = last_activity[:77] + "..."
+            else:
+                summary["last_activity"] = last_activity
+            
+            # Add token count
+            summary["total_tokens"] = mission_log.total_input_tokens + mission_log.total_output_tokens
+            
+            # Add human-friendly last modified time
+            import time
+            file_time = os.path.getmtime(mission_file)
+            now = time.time()
+            diff_seconds = now - file_time
+            
+            if diff_seconds < 60:
+                summary["human_time"] = "just now"
+            elif diff_seconds < 3600:
+                minutes = int(diff_seconds / 60)
+                summary["human_time"] = f"{minutes}m ago"
+            elif diff_seconds < 86400:
+                hours = int(diff_seconds / 3600)
+                summary["human_time"] = f"{hours}h ago"
+            elif diff_seconds < 604800:
+                days = int(diff_seconds / 86400)
+                summary["human_time"] = f"{days}d ago"
+            else:
+                weeks = int(diff_seconds / 604800)
+                summary["human_time"] = f"{weeks}w ago"
+            
+            recent_missions.append(summary)
+    
+    return recent_missions
+
+def display_mission_selection_menu() -> Optional[str]:
+    """Display a menu for selecting between new mission or resuming existing one."""
+    
+    console.print("\n[bold cyan]🚀 Launchonomy Autonomous AI Agents Business System[/bold cyan]")
+    console.print("=" * 60)
+    
+    # Get recent missions
+    recent_missions = get_recent_missions(5)
+    resumable_missions = [m for m in recent_missions if m["can_resume"]]
+    
+    if not resumable_missions:
+        console.print("[yellow]No resumable missions found. Starting new mission...[/yellow]")
+        return None
+    
+    console.print(f"\n[bold]Found {len(resumable_missions)} resumable mission(s):[/bold]")
+    
+    # Create table for mission display
+    table = Table(show_header=True, header_style="bold magenta", width=100)
+    table.add_column("#", style="bold dim", width=2, no_wrap=True)
+    table.add_column("Mission", style="cyan", width=28)
+    table.add_column("Status", style="yellow", width=9)
+    table.add_column("Cyc", style="green", width=3)
+    table.add_column("Tokens", style="magenta", width=6)
+    table.add_column("Modified", style="dim", width=8)
+    table.add_column("Last Activity", style="blue", width=30)
+    
+    for i, mission in enumerate(resumable_missions, 1):
+        status_color = "red" if mission["status"] == "CRITICAL_ERROR" else "yellow"
+        table.add_row(
+            str(i),
+            mission["mission"][:28] + ("..." if len(mission["mission"]) > 28 else ""),
+            f"[{status_color}]{mission['status'][:9]}[/{status_color}]",
+            str(mission["cycles"]),
+            format_token_count(mission['total_tokens']),
+            mission.get("human_time", "unknown"),
+            mission["last_activity"][:30] + ("..." if len(mission["last_activity"]) > 30 else "")
+        )
+    
+    console.print(table)
+    
+    # Get user choice
+    console.print(f"\n[bold]Options:[/bold]")
+    console.print(f"  [cyan]1-{len(resumable_missions)}[/cyan]: Resume mission")
+    console.print("  [cyan]n[/cyan]: Start new mission")
+    console.print("  [cyan]q[/cyan]: Quit")
+    
+    while True:
+        choice = Prompt.ask("\nSelect option", default="n").lower().strip()
+        
+        if choice == "q":
+            console.print("Goodbye!")
+            sys.exit(0)
+        elif choice == "n":
+            return None  # Start new mission
+        elif choice.isdigit():
+            choice_num = int(choice)
+            if 1 <= choice_num <= len(resumable_missions):
+                selected_mission = resumable_missions[choice_num - 1]
+                
+                # Show mission details and confirm
+                console.print(f"\n[bold]Selected Mission:[/bold]")
+                console.print(f"  Mission: {selected_mission['mission']}")
+                console.print(f"  Status: {selected_mission['status']}")
+                console.print(f"  Cycles Completed: {selected_mission['cycles']}")
+                console.print(f"  Total Cost: ${selected_mission['cost']:.4f}")
+                console.print(f"  Last Activity: {selected_mission['last_activity']}")
+                
+                if Confirm.ask("\nResume this mission?", default=True):
+                    return selected_mission["file_path"]
+            else:
+                console.print(f"[red]Invalid choice. Please enter 1-{len(resumable_missions)}, 'n', or 'q'[/red]")
+        else:
+            console.print(f"[red]Invalid choice. Please enter 1-{len(resumable_missions)}, 'n', or 'q'[/red]")
+
+async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger, debug_mode: bool, resume_mission_log: Optional[OverallMissionLog] = None):
     """Runs the mission with the orchestrator, including CLI interactions for accept/reject."""
     if debug_mode:
         logger.setLevel(logging.DEBUG)
         agent_logger.console.print("[bold yellow]DEBUG mode enabled.[/bold yellow]")
 
-    # Generate a unique ID for the overall mission
-    overall_mission_log_id = f"mission_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{re.sub(r'\\W+','_',overall_mission_string[:30])}"
-    overall_log = OverallMissionLog(
-        mission_id=overall_mission_log_id,
-        timestamp=get_timestamp(),
-        overall_mission=overall_mission_string,
-        final_status="started" 
-    )
-    total_mission_cost = 0.0
+    # Handle mission resume or create new mission
+    if resume_mission_log:
+        # Resuming existing mission
+        overall_log = resume_mission_log
+        overall_log.final_status = "resumed"  # Update status to indicate resume
+        total_mission_cost = overall_log.total_mission_cost
+        console.print(f"[green]Resuming mission: {overall_log.mission_id}[/green]")
+        console.print(f"[dim]Previous cycles: {overall_log.total_decision_cycles}, Cost: ${total_mission_cost:.4f}, Tokens: {overall_log.total_input_tokens + overall_log.total_output_tokens:,}[/dim]")
+    else:
+        # Generate a unique ID for the overall mission
+        overall_mission_log_id = f"mission_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{re.sub(r'\\W+','_',overall_mission_string[:30])}"
+        overall_log = OverallMissionLog(
+            mission_id=overall_mission_log_id,
+            timestamp=get_timestamp(),
+            overall_mission=overall_mission_string,
+            final_status="started" 
+        )
+        total_mission_cost = 0.0
 
     try:
         # Initialize the OpenAI client here
@@ -405,6 +602,11 @@ async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger
         )
 
         monitor = MissionMonitor()
+        
+        # If resuming, restore token counts to monitor
+        if resume_mission_log:
+            monitor.total_input_tokens = resume_mission_log.total_input_tokens
+            monitor.total_output_tokens = resume_mission_log.total_output_tokens
         
         # Create token tracking wrapper
         token_tracking_client = TokenTrackingOpenAIClient(openai_client, monitor)
@@ -467,6 +669,9 @@ async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger
                         new_agent_name = created_match.group(1)
                         if new_agent_name not in monitor.all_known_agents:
                             monitor.add_agent(new_agent_name)
+                            # Update mission log with new agent
+                            if new_agent_name not in overall_log.created_agents:
+                                overall_log.created_agents.append(new_agent_name)
                             logger.debug(f"Detected and added confirmed agent from log: {new_agent_name}")
                 
                 new_overall_status = ""
@@ -556,25 +761,70 @@ async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger
             monitor.add_agent(orchestrator.name)
             monitor.update(overall_mission_string)
 
-            # Bootstrap C-Suite agents as per orchestrator primer
-            monitor.set_overall_status("Bootstrapping C-Suite founding team...", is_running=True)
-            monitor.update(overall_mission_string)
-            await orchestrator.bootstrap_c_suite(overall_mission_string)
-            
-            # Add C-Suite agents to monitor
-            for agent_name in orchestrator.agents.keys():
-                if agent_name not in [orchestrator.name]:
+            # Handle agent context restoration for resumed missions
+            if resume_mission_log and resume_mission_log.created_agents:
+                monitor.set_overall_status("Restoring agent context from previous mission...", is_running=True)
+                monitor.update(overall_mission_string)
+                
+                # Restore C-Suite agents first (they should always exist)
+                await orchestrator.bootstrap_c_suite(overall_mission_string)
+                
+                # Add all known agents to monitor (C-Suite + any specialists)
+                for agent_name in resume_mission_log.created_agents:
                     monitor.add_agent(agent_name)
+                
+                # Update mission log with current agent list
+                overall_log.created_agents = list(orchestrator.agents.keys())
+                
+                console.print(f"[cyan]Restored {len(resume_mission_log.created_agents)} agents from previous mission[/cyan]")
+            else:
+                # Bootstrap C-Suite agents as per orchestrator primer for new missions
+                monitor.set_overall_status("Bootstrapping C-Suite founding team...", is_running=True)
+                monitor.update(overall_mission_string)
+                await orchestrator.bootstrap_c_suite(overall_mission_string)
+                
+                # Add C-Suite agents to monitor
+                for agent_name in orchestrator.agents.keys():
+                    if agent_name not in [orchestrator.name]:
+                        monitor.add_agent(agent_name)
+                
+                # Track created agents in mission log
+                overall_log.created_agents = list(orchestrator.agents.keys())
+            
             monitor.update(overall_mission_string)
 
-            accepted_cycle_outcomes_summary: List[Dict[str, Any]] = []
-            
-            monitor.set_overall_status("Orchestrator: Determining initial strategic step...", is_running=True)
-            await asyncio.sleep(0.1)
-            current_decision_focus = await orchestrator.determine_next_strategic_step(
-                overall_mission_string, 
-                []
-            )
+            # Handle resume vs new mission logic
+            if resume_mission_log and resume_mission_log.decision_cycles_summary:
+                # Resuming mission - extract accepted cycles and determine next step
+                accepted_cycle_outcomes_summary = []
+                for cycle in resume_mission_log.decision_cycles_summary:
+                    if cycle.get("status", "").startswith("success") or "completed" in cycle.get("status", ""):
+                        # Extract successful cycle summary
+                        cycle_summary = {
+                            "decision_focus": cycle.get("decision_focus", ""),
+                            "execution_type": cycle.get("execution_output", {}).get("execution_type", "unknown"),
+                            "summary": cycle.get("execution_output", {}).get("description", cycle.get("recommendation_text", "")),
+                            "output_data": cycle.get("execution_output", {}).get("output_data", {})
+                        }
+                        accepted_cycle_outcomes_summary.append(cycle_summary)
+                
+                monitor.set_overall_status("Orchestrator: Resuming mission and determining next step...", is_running=True)
+                console.print(f"[cyan]Resuming from {len(accepted_cycle_outcomes_summary)} completed cycles[/cyan]")
+                await asyncio.sleep(0.1)
+                current_decision_focus = await orchestrator.determine_next_strategic_step(
+                    overall_mission_string, 
+                    accepted_cycle_outcomes_summary
+                )
+            else:
+                # New mission
+                accepted_cycle_outcomes_summary: List[Dict[str, Any]] = []
+                
+                monitor.set_overall_status("Orchestrator: Determining initial strategic step...", is_running=True)
+                await asyncio.sleep(0.1)
+                current_decision_focus = await orchestrator.determine_next_strategic_step(
+                    overall_mission_string, 
+                    []
+                )
 
             while True:
                 if current_decision_focus.upper() == "MISSION_COMPLETE":
@@ -599,6 +849,21 @@ async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger
                 total_mission_cost += cycle_result.get("total_cycle_cost", 0.0)
                 overall_log.total_mission_cost = total_mission_cost
                 overall_log.total_decision_cycles += 1
+                
+                # Update token counts and context in mission log
+                overall_log.total_input_tokens = monitor.total_input_tokens
+                overall_log.total_output_tokens = monitor.total_output_tokens
+                overall_log.current_decision_focus = current_decision_focus
+                
+                # Create descriptive last activity based on cycle outcome
+                if cycle_result.get("status", "").startswith("success"):
+                    if cycle_result.get("execution_result"):
+                        exec_type = cycle_result["execution_result"].get("execution_type", "unknown")
+                        overall_log.last_activity_description = f"Successfully executed {exec_type}: {current_decision_focus[:50]}..."
+                    else:
+                        overall_log.last_activity_description = f"Successfully completed: {current_decision_focus[:60]}..."
+                else:
+                    overall_log.last_activity_description = f"Working on: {current_decision_focus[:60]}..."
 
                 monitor.set_overall_status("Cycle Complete. Awaiting User Review.", is_running=False)
                 live.update(monitor.layout)
@@ -723,6 +988,11 @@ async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger
         if overall_log.final_status == "started":
             overall_log.final_status = "ended_unexpectedly"
 
+        # Final update of context and token counts
+        overall_log.total_input_tokens = monitor.total_input_tokens
+        overall_log.total_output_tokens = monitor.total_output_tokens
+        overall_log.created_agents = list(orchestrator.agents.keys()) if 'orchestrator' in locals() else overall_log.created_agents
+
         overall_log.save_log()
         console.print(f"Overall mission log saved to mission_logs/{overall_log.mission_id}.json")
         console.print("CLI session ended.")
@@ -730,11 +1000,42 @@ async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger
 @click.command()
 @click.argument('mission', required=False)
 @click.option('--debug', is_flag=True, help="Enable DEBUG level logging.")
-def main(mission: Optional[str] = None, debug: bool = False):
+@click.option('--new', is_flag=True, help="Force start a new mission (skip resume menu).")
+def main(mission: Optional[str] = None, debug: bool = False, new: bool = False):
     """Run an autonomous business mission with orchestrator and user interaction.
     
-    If no mission is provided, you will be prompted for one.
+    On startup, you'll see a menu to either resume a previous mission or start a new one.
+    The system shows the 5 most recent missions with their status and progress.
+    
+    MISSION: Optional mission description. If not provided, you'll be prompted.
+    
+    Options:
+    --debug: Enable detailed debug logging
+    --new: Skip the resume menu and force start a new mission
+    
+    Examples:
+    python orchestrator/cli.py                    # Show resume menu
+    python orchestrator/cli.py --new              # Force new mission
+    python orchestrator/cli.py "Build an app"     # New mission with description
     """
+    resume_mission_log = None
+    
+    # Show mission selection menu unless --new flag is used
+    if not new:
+        try:
+            selected_mission_file = display_mission_selection_menu()
+            if selected_mission_file:
+                resume_mission_log = load_mission_log(selected_mission_file)
+                if resume_mission_log:
+                    mission = resume_mission_log.overall_mission
+                    console.print(f"[green]Loaded mission: {mission}[/green]")
+                else:
+                    console.print("[red]Failed to load selected mission. Starting new mission...[/red]")
+        except KeyboardInterrupt:
+            console.print("\n[yellow]Cancelled by user.[/yellow]")
+            sys.exit(0)
+    
+    # Get mission string if not resuming
     if not mission:
         mission = Prompt.ask(
             "[bold cyan]Enter the overall business mission[/bold cyan]",
@@ -742,7 +1043,7 @@ def main(mission: Optional[str] = None, debug: bool = False):
         )
     
     agent_logger = AgentLogger()
-    asyncio.run(run_mission_cli(mission, agent_logger, debug))
+    asyncio.run(run_mission_cli(mission, agent_logger, debug, resume_mission_log))
 
 if __name__ == "__main__":
     main() 

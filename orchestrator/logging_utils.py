@@ -17,8 +17,15 @@ class OverallMissionLog:
     final_status: str = "Initialized" # e.g., "In Progress", "Completed", "Failed", "Halted"
     total_mission_cost: float = 0.0
     total_decision_cycles: int = 0
+    # Token tracking
+    total_input_tokens: int = 0
+    total_output_tokens: int = 0
     # Log of all decision cycles that occurred during the mission
     decision_cycles_summary: List[Dict[str, Any]] = field(default_factory=list)
+    # Orchestrator context for resume
+    created_agents: List[str] = field(default_factory=list) # List of agent names that were created
+    current_decision_focus: Optional[str] = None # Last decision focus being worked on
+    last_activity_description: Optional[str] = None # Human-readable description of last activity
     # Detailed logs if needed, or these can be part of each cycle_summary
     # For example, keeping the detailed logs within each cycle in decision_cycles_summary might be cleaner
     # agent_management_events: List[dict] = field(default_factory=list) 
