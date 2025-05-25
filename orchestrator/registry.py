@@ -91,6 +91,10 @@ class Registry:
         """Returns a list of all registered agent names."""
         return list(self.agents.keys())
 
+    def list_tool_names(self) -> List[str]:
+        """Returns a list of all registered tool names."""
+        return list(self.tools.keys())
+
     def get_agent_endpoint(self, agent_name: str) -> Optional[str]:
         """Retrieves the endpoint for a given agent."""
         agent_info = self.agents.get(agent_name)

@@ -51,8 +51,14 @@ class AutoProvisionAgent:
         self._log(f"Assessing triviality for {item_type} '{item_name}'. Reason: {reason}", "debug")
 
         if item_type == "tool" and reason == "not_found":
-            # Example: if context suggests low complexity or it's a known simple tool type
-            if "spreadsheet" in item_name.lower() or "calendar" in item_name.lower() or "file_operation" in item_name.lower():
+            # Enhanced triviality detection for common business tools
+            trivial_tool_patterns = [
+                "spreadsheet", "calendar", "email", "file", "document", "storage",
+                "crm", "analytics", "payment", "webhook", "api", "database",
+                "social", "marketing", "automation", "integration", "notification"
+            ]
+            
+            if any(pattern in item_name.lower() for pattern in trivial_tool_patterns):
                 self._log(f"'{item_name}' considered TRIVIAL for auto-provisioning.", "info")
                 return True
         
@@ -115,7 +121,7 @@ class AutoProvisionAgent:
             self._log(f"Unknown item type for stub spec generation: {item_type}", "error")
             raise ValueError(f"Unknown item type for stub spec generation: {item_type}")
 
-    def handle_trivial_request(self, context: Dict, missing_item_details: Dict) -> Optional[str]:
+    async def handle_trivial_request(self, context: Dict, missing_item_details: Dict) -> Optional[str]:
         """
         Handles a potentially trivial request for a missing tool or agent.
         If deemed trivial, proposes it for consensus and applies if accepted.
@@ -167,6 +173,22 @@ class AutoProvisionAgent:
             try:
                 self.registry.apply_proposal(proposal)
                 self._log(f"Successfully auto-provisioned {item_type} '{item_name}' and updated registry.", "info")
+                
+                # For agents, also create the actual RoutedAgent instance
+                if item_type == "agent" and hasattr(self.coa, '_create_agent'):
+                    try:
+                        agent_spec = stub_spec
+                        persona = agent_spec.get("description", f"Auto-provisioned agent for {item_name}")
+                        primer = f"You are {item_name}. {persona}\nYour capabilities include: {', '.join(agent_spec.get('capabilities', []))}"
+                        
+                        # Create the actual agent instance
+                        agent_instance = await self.coa._create_agent(item_name, persona, primer)
+                        self._log(f"Created actual agent instance for '{item_name}'.", "info")
+                        
+                    except Exception as e:
+                        self._log(f"Error creating agent instance for {item_name}: {e}", "warning")
+                        # Registry entry still exists, but no live agent instance
+                
                 # Here, one might trigger actual n8n workflow creation if item_type is tool
                 # e.g., await self.setup_n8n_webhook_placeholder(item_name, stub_spec)
                 return f"Auto-provisioned {item_type} '{item_name}'. You can now use it."

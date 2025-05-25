@@ -112,10 +112,130 @@ class OrchestrationAgent(RoutedAgent):
                 certified=True, 
                 spec={"description": "Handles auto-provisioning of trivial tools/agents."}
             )
+        
+        # Bootstrap C-Suite agents as described in the primer
+        self.c_suite_bootstrapped = False  # Track if bootstrap has been called
 
     def set_log_callback(self, callback):
         """Set callback for CLI logging."""
         self.log_callback = callback
+
+    async def bootstrap_c_suite(self, mission_context: str = ""):
+        """
+        Bootstrap the C-Suite agents as described in the orchestrator primer.
+        Each agent is seeded with the full current context in their initial system prompt.
+        """
+        if self.c_suite_bootstrapped:
+            self._log("C-Suite already bootstrapped, skipping.", "info")
+            return
+
+        self._log("Bootstrapping C-Suite agents as per orchestrator primer...", "info")
+        
+        # Define the C-Suite agents as specified in the primer
+        c_suite_specs = {
+            "CEO-Agent": {
+                "persona": "Chief Executive Officer focused on vision & prioritization",
+                "expertise": "strategic vision, business prioritization, executive decision-making, market positioning",
+                "responsibilities": "defines vision & prioritization for the business mission"
+            },
+            "CRO-Agent": {
+                "persona": "Chief Revenue Officer focused on customer acquisition & revenue",
+                "expertise": "sales strategy, customer acquisition, revenue optimization, conversion funnels",
+                "responsibilities": "focuses on customer acquisition & revenue generation"
+            },
+            "CTO-Agent": {
+                "persona": "Chief Technology Officer owning technical infrastructure & tools",
+                "expertise": "technical architecture, infrastructure, development tools, system integration",
+                "responsibilities": "owns technical infrastructure & tools implementation"
+            },
+            "CPO-Agent": {
+                "persona": "Chief Product Officer owning product/UX experiments & A/B tests",
+                "expertise": "product strategy, user experience, A/B testing, product optimization",
+                "responsibilities": "owns product/UX experiments & A/B tests"
+            },
+            "CMO-Agent": {
+                "persona": "Chief Marketing Officer owning marketing channels & growth hacks",
+                "expertise": "marketing strategy, growth hacking, channel optimization, brand positioning",
+                "responsibilities": "owns marketing channels & growth hacks"
+            },
+            "CDO-Agent": {
+                "persona": "Chief Data Officer owning data strategy, quality, and insights",
+                "expertise": "data strategy, analytics, data quality, business intelligence",
+                "responsibilities": "owns data strategy, quality, and insights"
+            },
+            "CCO-Agent": {
+                "persona": "Chief Compliance Officer owning compliance, legal, and regulatory risk",
+                "expertise": "legal compliance, regulatory requirements, risk management, business law",
+                "responsibilities": "owns compliance, legal, and regulatory risk"
+            },
+            "CFO-Agent": {
+                "persona": "Chief Financial Officer overseeing budgets, profitability & reinvestment strategy",
+                "expertise": "financial planning, budget management, profitability analysis, investment strategy",
+                "responsibilities": "oversees budgets, profitability & reinvestment strategy"
+            },
+            "CCSO-Agent": {
+                "persona": "Chief Customer Success Officer owning post-purchase journey: onboarding, support, retention & advocacy",
+                "expertise": "customer success, onboarding, support systems, retention strategies",
+                "responsibilities": "owns post-purchase journey: onboarding, support, retention & advocacy"
+            }
+        }
+
+        bootstrap_cost = 0.0
+        
+        for agent_name, spec in c_suite_specs.items():
+            try:
+                # Check if agent already exists
+                if agent_name in self.agents:
+                    self._log(f"C-Suite agent {agent_name} already exists, skipping creation.", "debug")
+                    continue
+                
+                # Create comprehensive system prompt with mission context
+                system_prompt = f"""You are {agent_name}, the {spec['persona']}.
+
+Mission Context: {mission_context}
+
+Your Role & Responsibilities:
+{spec['responsibilities']}
+
+Your Core Expertise:
+{spec['expertise']}
+
+Operating Principles (from Launchonomy Primer):
+• Objective: Acquire the first paying customer as fast as possible, then ignite exponential, profitable growth—automatically and without human plan approvals
+• Budget Constraint: Initial budget $500, profit guardrail: total costs never exceed 20% of revenue
+• Self-Governing: You participate in unanimous consensus voting for all proposals
+• Specialization: When faced with tasks beyond your scope, propose creation of new agents/tools
+• No Human Approval: Plans never go to humans—only system-critical failures do
+
+You are part of the founding C-Suite team working together through consensus to achieve the mission. Always consider your specialized perspective while collaborating with other C-Suite agents for unanimous decisions."""
+
+                # Create the agent
+                agent = await self._create_agent(agent_name, spec['persona'], system_prompt)
+                
+                # Add to registry with C-Suite designation
+                self.registry.add_agent(
+                    name=agent_name,
+                    endpoint=f"c_suite.{agent_name.lower().replace('-', '_')}.handle_request",
+                    certified=True,
+                    spec={
+                        "description": spec['persona'],
+                        "expertise": spec['expertise'],
+                        "responsibilities": spec['responsibilities'],
+                        "type": "c_suite_founding_member",
+                        "source": "bootstrapped"
+                    }
+                )
+                
+                self._log(f"✅ Bootstrapped {agent_name}: {spec['persona']}", "info")
+                
+            except Exception as e:
+                self._log(f"❌ Failed to bootstrap {agent_name}: {str(e)}", "error")
+                # Continue with other agents even if one fails
+        
+        self.c_suite_bootstrapped = True
+        self._log(f"🎉 C-Suite bootstrap complete! Active agents: {len(self.agents)}", "info")
+        
+        return bootstrap_cost
 
     def _log(self, message: str, msg_type: str = "info"):
         """Log a message using the callback if available."""
@@ -606,8 +726,8 @@ class OrchestrationAgent(RoutedAgent):
             self._log(f"Consensus not reached after {loop_num + 1} review round(s). Max loops: {self.MAX_REVISION_LOOPS}", "info")
             if loop_num < self.MAX_REVISION_LOOPS - 1:
                 issues_for_revision = "\\n".join(
-                    f"- {r.get('agent', 'Unknown Agent')}: {', '.join(r.get('issues', ['No specific issues cited'])) if r.get('issues') else 'No specific issues cited.'}" 
-                    for r in current_reviews if not r.get('valid', True) or r.get('issues')
+                    f"- {r.get('agent', 'Unknown Agent')}: {r.get('feedback', 'No specific feedback provided') if not r.get('approved', r.get('valid', True)) else ', '.join(r.get('issues', ['No specific issues cited'])) if r.get('issues') else 'No specific issues cited.'}" 
+                    for r in current_reviews if not (r.get('valid', True) or r.get('approved', True)) or r.get('issues')
                 )
                 if not issues_for_revision.strip():
                     issues_for_revision = "General concerns about the recommendation were raised. Please re-evaluate and provide specific revision instructions."
@@ -656,25 +776,31 @@ class OrchestrationAgent(RoutedAgent):
         agent_name = getattr(agent, 'name', 'UnnamedAgent')
         self._log(f"Attempting to execute recommendation via {agent_name}: '{recommendation[:100]}...'", "info")
         
-        # Check if recommendation mentions any tools and attempt to retrieve them from registry
+        # Enhanced tool detection and auto-provisioning
         available_tools = {}
         tool_lookup_cost = 0.0
         
-        # Simple keyword-based tool detection (could be enhanced with NLP)
-        potential_tool_keywords = ["tool", "api", "service", "webhook", "integration"]
-        if any(keyword in recommendation.lower() for keyword in potential_tool_keywords):
-            self._log("Recommendation mentions tools/APIs. Checking registry for available tools.", "debug")
-            
-            # For now, we'll just make available tools accessible in the execution context
-            # A more sophisticated approach would parse the recommendation to identify specific tool names
-            context = {"overall_mission": "execution_context", "recommendation": recommendation}
-            
-            # Example: if recommendation mentions "spreadsheet", try to get that tool
-            if "spreadsheet" in recommendation.lower():
-                spreadsheet_tool = await self._get_tool_from_registry("spreadsheet", context)
-                if spreadsheet_tool:
-                    available_tools["spreadsheet"] = spreadsheet_tool
-                    self._log("Spreadsheet tool found and made available for execution.", "info")
+        # Enhanced keyword-based tool detection with more comprehensive patterns
+        tool_patterns = [
+            "spreadsheet", "calendar", "email", "database", "api", "webhook", 
+            "crm", "analytics", "payment", "file", "document", "storage",
+            "social media", "marketing", "automation", "integration"
+        ]
+        
+        context = {
+            "overall_mission": "execution_context", 
+            "recommendation": recommendation,
+            "agent_name": agent_name
+        }
+        
+        # Scan recommendation for tool mentions and attempt auto-provisioning
+        for tool_pattern in tool_patterns:
+            if tool_pattern in recommendation.lower():
+                self._log(f"Detected potential tool requirement: {tool_pattern}", "debug")
+                tool = await self._get_tool_from_registry(tool_pattern, context)
+                if tool:
+                    available_tools[tool_pattern] = tool
+                    self._log(f"Tool '{tool_pattern}' made available for execution.", "info")
         
         attempt_log_entry = {
             "timestamp": datetime.now().isoformat(),
@@ -751,6 +877,37 @@ class OrchestrationAgent(RoutedAgent):
                 result_json["cost"] = result_json.get("cost", 0.0) 
 
             self._log(f"Execution attempt by {agent_name} ({result_json['execution_type']}) successful: {result_json['description'][:100]}...", "success")
+            
+            # Intercept human intervention requests and attempt auto-provisioning
+            if result_json.get('execution_type') == 'requires_human_intervention' and result_json.get('human_task_description'):
+                human_task = result_json.get('human_task_description')
+                self._log(f"Human intervention required: {human_task[:100]}...", "info")
+                
+                # Check if AutoProvisionAgent can handle this as a trivial request
+                missing_item_details = {
+                    "type": "tool",  # Assume it's a tool requirement for now
+                    "name": f"human_task_{agent_name}",
+                    "reason": "requires_human_intervention", 
+                    "details": human_task
+                }
+                
+                try:
+                    auto_provision_result = await self.auto_provision_agent.handle_trivial_request(
+                        context, missing_item_details
+                    )
+                    
+                    if auto_provision_result:
+                        self._log(f"AutoProvisionAgent handled human task: {auto_provision_result}", "info")
+                        # Update the execution result to indicate auto-handling
+                        result_json['execution_type'] = 'automated_by_ai'
+                        result_json['description'] += f"\n\nAuto-handled by AutoProvisionAgent: {auto_provision_result}"
+                        result_json['human_task_description'] = None
+                        result_json['next_steps_if_human'] = None
+                        
+                except Exception as e:
+                    self._log(f"AutoProvisionAgent could not handle human task: {str(e)}", "debug")
+                    # Continue with original human intervention requirement
+            
             execution_attempts_log.append(attempt_log_entry)
             return result_json, total_cost_for_execution
             
@@ -776,7 +933,8 @@ class OrchestrationAgent(RoutedAgent):
     def _check_review_consensus(self, reviews: List[dict]) -> bool:
         """Check if there is consensus among peer reviews."""
         if not reviews: return False
-        valid_reviews = [r for r in reviews if r.get("valid", False)]
+        # Check both new format (approved) and legacy format (valid) for compatibility
+        valid_reviews = [r for r in reviews if r.get("valid", False) or r.get("approved", False)]
         # Stricter: all must be valid for consensus, or a high threshold.
         # For now, let's stick to the 75% threshold.
         return len(valid_reviews) >= len(reviews) * 0.75 
@@ -838,9 +996,40 @@ class OrchestrationAgent(RoutedAgent):
                 agent_management_logs.append(selection_event)
                 return self.agents[best_agent_name], best_confidence, accumulated_cost
 
-        # Create new specialist if no suitable agent found or no agents exist
-        self._log(f"No suitable existing agent found for decision: '{decision[:100]}...'. Creating a new specialist.", "info")
-        selection_event["reason"] = "No suitable existing agent found, proceeding to create new specialist."
+        # Before creating a new specialist, check if AutoProvisionAgent can handle this as a trivial agent request
+        self._log(f"No suitable existing agent found for decision: '{decision[:100]}...'. Checking if AutoProvisionAgent can handle this.", "info")
+        
+        missing_item_details = {
+            "type": "agent",
+            "name": f"specialist_for_{decision[:30].replace(' ', '_')}",
+            "reason": "not_found",
+            "details": f"No suitable agent found for decision: {decision}"
+        }
+        
+        context = {"overall_mission": "agent_selection", "decision": decision}
+        
+        try:
+            auto_provision_result = await self.auto_provision_agent.handle_trivial_request(
+                context, missing_item_details
+            )
+            
+            if auto_provision_result:
+                self._log(f"AutoProvisionAgent handled agent creation: {auto_provision_result}", "info")
+                # Check if the agent was actually added to registry and try to use it
+                agent_name = missing_item_details["name"]
+                if agent_name in self.agents:
+                    selection_event["selected_agent_name"] = agent_name
+                    selection_event["confidence"] = 1.0
+                    selection_event["reason"] = f"Auto-provisioned by AutoProvisionAgent: {auto_provision_result}"
+                    agent_management_logs.append(selection_event)
+                    return self.agents[agent_name], 1.0, accumulated_cost
+                    
+        except Exception as e:
+            self._log(f"AutoProvisionAgent could not handle agent creation: {str(e)}", "debug")
+        
+        # Fallback to creating new specialist if auto-provisioning didn't work
+        self._log(f"AutoProvisionAgent declined or failed. Creating a new specialist manually.", "info")
+        selection_event["reason"] = "No suitable existing agent found, AutoProvisionAgent declined, proceeding to create new specialist."
         # Cost of _create_specialized_agent will be added separately
         new_agent, creation_cost = await self._create_specialized_agent(decision, agent_management_logs, json_parsing_logs)
         accumulated_cost += creation_cost
@@ -1135,7 +1324,15 @@ class OrchestrationAgent(RoutedAgent):
         if not reviewers:
             self._log(f"No other suitable agents available to review output from {subject_agent_name}. Skipping peer review.", "warning")
             # Return a system "review" indicating no reviewers, and 0 cost
-            return [{"agent": "System", "valid": True, "issues": ["No reviewers available"], "kpi_valid": True, "kpi_issues": []}], 0.0
+            return [{
+                "agent": "System", 
+                "approved": True,
+                "feedback": "No reviewers available - auto-approved",
+                "estimated_confidence_if_approved": 1.0,
+                "valid": True,  # Legacy compatibility
+                "issues": ["No reviewers available"],  # Legacy compatibility
+                "kpi_valid": True, "kpi_issues": []
+            }], 0.0
 
         self._log(f"Starting batch peer review of output from {subject_agent_name} by {len(reviewers)} agents.", "info")
         
@@ -1180,6 +1377,11 @@ class OrchestrationAgent(RoutedAgent):
                 # Ensure the review dict from agent has 'agent' field for backward compatibility if needed,
                 # though review_log_entry already has reviewer_agent_name.
                 review_json["agent"] = agent_instance_name 
+                
+                # Convert new review format to legacy format for compatibility
+                review_json["valid"] = review_json.get("approved", False)
+                review_json["issues"] = [] if review_json.get("approved", False) else [review_json.get("feedback", "No feedback provided")]
+                
                 all_reviews_from_batch.append(review_json)
                 self._log(f"Review from {agent_instance_name}: Valid={review_json.get('valid')}, Issues={len(review_json.get('issues',[]))}", "info")
 
@@ -1193,8 +1395,12 @@ class OrchestrationAgent(RoutedAgent):
 
                 # Append a structured error review
                 error_review = {
-                    "agent": agent_instance_name, "valid": False,
-                    "issues": [f"Review generation error: {str(e)}"],
+                    "agent": agent_instance_name, 
+                    "approved": False,
+                    "feedback": f"Review generation error: {str(e)}",
+                    "estimated_confidence_if_approved": 0.0,
+                    "valid": False,  # Legacy compatibility
+                    "issues": [f"Review generation error: {str(e)}"],  # Legacy compatibility
                     "kpi_valid": False, "kpi_issues": [f"Review generation error: {str(e)}"],
                     "error_detail": str(e)
                 }
@@ -1229,7 +1435,7 @@ class OrchestrationAgent(RoutedAgent):
         }
         
         try:
-            auto_provision_result = self.auto_provision_agent.handle_trivial_request(
+            auto_provision_result = await self.auto_provision_agent.handle_trivial_request(
                 context or {}, missing_item_details
             )
             

@@ -307,6 +307,17 @@ async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger
             monitor.add_agent(orchestrator.name)
             monitor.update(overall_mission_string)
 
+            # Bootstrap C-Suite agents as per orchestrator primer
+            monitor.set_overall_status("Bootstrapping C-Suite founding team...", is_running=True)
+            monitor.update(overall_mission_string)
+            await orchestrator.bootstrap_c_suite(overall_mission_string)
+            
+            # Add C-Suite agents to monitor
+            for agent_name in orchestrator.agents.keys():
+                if agent_name not in [orchestrator.name]:
+                    monitor.add_agent(agent_name)
+            monitor.update(overall_mission_string)
+
             accepted_cycle_outcomes_summary: List[Dict[str, Any]] = []
             
             monitor.set_overall_status("Orchestrator: Determining initial strategic step...", is_running=True)

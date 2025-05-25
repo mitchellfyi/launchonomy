@@ -1,28 +1,55 @@
-# Autonomous Business Creator
+# Launchonomy - Autonomous Business Mission System
 
-An AI-powered system that autonomously creates and launches online businesses with zero or minimal upfront investment. The system uses a team of specialized AI agents to handle different aspects of business creation, from market validation to execution.
+An AI-powered autonomous business mission system that uses a collaborative team of specialized AI agents to achieve business objectives with minimal human intervention. The system features a founding C-Suite team of AI agents that work together through consensus-based decision making to execute business missions.
 
-## Features
+## Key Features
 
-- 🤖 Fully autonomous business creation and operation
-- 💰 Zero/minimal investment focus
-- 📊 KPI-driven decision making
-- 🔄 Collaborative decision loops with peer review
-- 📝 Comprehensive mission logging
-- 🎯 Customizable constraints and KPIs through system prompts
+- 🤖 **Autonomous C-Suite Team**: Auto-bootstraps with 9 specialized AI agents (CEO, CRO, CTO, CPO, CMO, CDO, CCO, CFO, CCSO)
+- 🔧 **Auto-Provisioning**: Automatically creates missing tools and agents without human intervention
+- 🗳️ **Consensus Voting**: All decisions made through unanimous consensus for safety and reliability
+- 💰 **Budget-Conscious**: Built-in financial constraints and cost monitoring
+- 📊 **Mission-Driven**: KPI-focused execution with comprehensive logging
+- 🔄 **Self-Governing**: Agents operate independently within defined constraints
+- 📝 **Comprehensive Logging**: Full mission tracking and retrospective analysis
+
+## Architecture
+
+The system is built around an **OrchestratorAgent** that manages a team of specialist agents:
+
+### Core Components
+
+1. **OrchestratorAgent**: Central coordinator that manages missions and agent collaboration
+2. **AutoProvisionAgent**: Automatically creates missing tools and agents through consensus voting
+3. **C-Suite Founding Team**: 9 specialized agents with distinct roles and expertise
+4. **Registry System**: Persistent storage for agents, tools, and capabilities
+5. **Consensus Engine**: Ensures all decisions are made through unanimous voting
+
+### C-Suite Founding Team
+
+The system automatically bootstraps with these specialized agents:
+
+- **CEO-Agent**: Strategic leadership and overall mission coordination
+- **CRO-Agent**: Revenue optimization and customer relationship management
+- **CTO-Agent**: Technology strategy and technical implementation
+- **CPO-Agent**: Product development and user experience
+- **CMO-Agent**: Marketing strategy and brand management
+- **CDO-Agent**: Data strategy and analytics
+- **CCO-Agent**: Customer success and support operations
+- **CFO-Agent**: Financial planning and budget management
+- **CCSO-Agent**: Cybersecurity and risk management
 
 ## Prerequisites
 
 - Python 3.9+
 - pip package manager
-- A local LLM server or OpenAI API access
+- Local LLM server (recommended) or OpenAI API access
 
 ## Installation
 
 1. Clone the repository:
 ```bash
 git clone <repository-url>
-cd autogen
+cd launchonomy
 ```
 
 2. Install dependencies:
@@ -33,11 +60,11 @@ pip install -r requirements.txt
 3. Configure your environment:
 Create a `.env` file in the root directory:
 ```env
-# For local LLM
+# For local LLM (recommended)
 OPENAI_API_BASE=http://localhost:1234/v1
 OPENAI_API_KEY=123
 
-# For OpenAI
+# For OpenAI API
 # OPENAI_API_KEY=your-api-key-here
 ```
 
@@ -52,67 +79,108 @@ python orchestrator/cli.py
 
 2. Run with specific mission:
 ```bash
-python orchestrator/cli.py "Build a profitable online course business in the tech niche"
+python orchestrator/cli.py "Launch a profitable SaaS product in the productivity niche"
 ```
 
-The system will automatically determine the best approach based on the mission description, using built-in constraints and KPIs defined in the orchestrator's primer.
+The system will:
+1. Auto-bootstrap the C-Suite founding team
+2. Analyze the mission and create a strategic plan
+3. Auto-provision any missing tools or specialist agents
+4. Execute the mission through collaborative consensus
+5. Monitor progress and adapt as needed
 
 ### Example Session
 
 ```bash
 $ python orchestrator/cli.py
-What business mission would you like to run? [Build a fully autonomous online business...]: Build a profitable newsletter business focused on AI trends
+🚀 Launchonomy - Autonomous Business Mission System
+What business mission would you like to run? [Build a fully autonomous online business...]: 
+Launch a subscription-based newsletter focused on AI industry insights
+
+🤖 Bootstrapping C-Suite founding team...
+✅ CEO-Agent initialized
+✅ CRO-Agent initialized
+✅ CTO-Agent initialized
+... (all 9 agents)
+
+📋 Mission Analysis:
+- Strategic approach: Content-driven subscription model
+- Required capabilities: Content creation, email automation, payment processing
+- Auto-provisioning: Email marketing tool, payment gateway, analytics dashboard
+
+🗳️ Consensus Decision: Proceed with newsletter launch strategy
+💰 Budget allocation: $500 initial investment approved
+🚀 Mission execution initiated...
 ```
 
 ## Mission Monitoring
 
-The CLI provides a real-time mission monitor with:
+The CLI provides real-time monitoring with:
 
-1. Mission Status Panel
-   - Current mission description
-   - Execution status
-   - Active agents
+1. **Mission Status Panel**
+   - Current mission description and progress
+   - Active agents and their roles
+   - Budget utilization and constraints
 
-2. Activity Log
-   - Agent decisions and actions
-   - Progress updates
-   - Error messages
+2. **Activity Log**
+   - Agent decisions and consensus votes
+   - Auto-provisioning activities
+   - Progress updates and milestones
 
-3. Results Display
-   - Mission outcomes
-   - KPI achievements
-   - Next steps
+3. **Results Dashboard**
+   - Mission outcomes and KPI achievements
+   - Financial performance
+   - Next steps and recommendations
+
+## Auto-Provisioning System
+
+The AutoProvisionAgent automatically handles:
+
+- **Tool Creation**: Missing business tools (CRM, analytics, payment processing, etc.)
+- **Agent Specialization**: New specialist agents for specific domains
+- **API Integrations**: External service connections and webhooks
+- **Infrastructure**: Basic technical requirements and endpoints
+
+All auto-provisioning decisions go through unanimous consensus voting for safety.
 
 ## Directory Structure
 
 ```
-autogen/
-├── backend/           # FastAPI backend service
-├── mission_logs/      # Mission execution logs
-├── orchestrator/      # Core orchestration logic
-│   ├── agents/       # Specialist agent implementations
-│   ├── templates/    # Agent system prompts
-│   ├── cli.py        # Command line interface
-│   └── orchestrator_agent.py  # Main orchestrator
-├── .env              # Environment configuration
-└── requirements.txt  # Python dependencies
+launchonomy/
+├── mission_logs/           # Mission execution logs and analysis
+├── orchestrator/           # Core orchestration system
+│   ├── agents/            # Specialist agent implementations
+│   │   ├── auto_provision_agent.py  # Auto-provisioning logic
+│   │   └── __init__.py
+│   ├── templates/         # Agent system prompts and schemas
+│   ├── cli.py            # Command line interface
+│   ├── orchestrator_agent.py  # Main orchestrator logic
+│   ├── registry.py       # Agent and tool registry
+│   ├── consensus.py      # Consensus voting system
+│   ├── logging_utils.py  # Mission logging utilities
+│   └── registry.json     # Persistent registry storage
+├── .env                  # Environment configuration
+├── requirements.txt      # Python dependencies
+├── README.md            # This file
+└── SYSTEM_STATUS.md     # Current system status and capabilities
 ```
 
 ## Logging and Analysis
 
-Mission logs are stored in `mission_logs/` with:
-- JSON execution logs
-- Retrospective analysis
-- KPI tracking
-- Decision history
+Mission logs are automatically stored in `mission_logs/` with:
+- JSON execution logs with full decision trails
+- Consensus voting records
+- Auto-provisioning activities
+- KPI tracking and financial monitoring
+- Retrospective analysis and lessons learned
 
-## Error Handling
+## Safety and Constraints
 
-The system includes:
-- Budget guard rails
-- Execution validation
-- Error recovery loops
-- Graceful failure handling
+The system operates within strict constraints:
+- **Budget Limits**: All spending requires consensus approval
+- **Unanimous Voting**: No action taken without full agreement
+- **Human Oversight**: Critical decisions can be escalated
+- **Audit Trail**: Complete logging of all decisions and actions
 
 ## Contributing
 

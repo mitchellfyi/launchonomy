@@ -13,6 +13,105 @@
       "spec": {
         "description": "Handles auto-provisioning of trivial tools/agents."
       }
+    },
+    "CEO-Agent": {
+      "endpoint": "c_suite.ceo_agent.handle_request",
+      "certified": true,
+      "spec": {
+        "description": "Chief Executive Officer focused on vision & prioritization",
+        "expertise": "strategic vision, business prioritization, executive decision-making, market positioning",
+        "responsibilities": "defines vision & prioritization for the business mission",
+        "type": "c_suite_founding_member",
+        "source": "bootstrapped"
+      }
+    },
+    "CRO-Agent": {
+      "endpoint": "c_suite.cro_agent.handle_request",
+      "certified": true,
+      "spec": {
+        "description": "Chief Revenue Officer focused on customer acquisition & revenue",
+        "expertise": "sales strategy, customer acquisition, revenue optimization, conversion funnels",
+        "responsibilities": "focuses on customer acquisition & revenue generation",
+        "type": "c_suite_founding_member",
+        "source": "bootstrapped"
+      }
+    },
+    "CTO-Agent": {
+      "endpoint": "c_suite.cto_agent.handle_request",
+      "certified": true,
+      "spec": {
+        "description": "Chief Technology Officer owning technical infrastructure & tools",
+        "expertise": "technical architecture, infrastructure, development tools, system integration",
+        "responsibilities": "owns technical infrastructure & tools implementation",
+        "type": "c_suite_founding_member",
+        "source": "bootstrapped"
+      }
+    },
+    "CPO-Agent": {
+      "endpoint": "c_suite.cpo_agent.handle_request",
+      "certified": true,
+      "spec": {
+        "description": "Chief Product Officer owning product/UX experiments & A/B tests",
+        "expertise": "product strategy, user experience, A/B testing, product optimization",
+        "responsibilities": "owns product/UX experiments & A/B tests",
+        "type": "c_suite_founding_member",
+        "source": "bootstrapped"
+      }
+    },
+    "CMO-Agent": {
+      "endpoint": "c_suite.cmo_agent.handle_request",
+      "certified": true,
+      "spec": {
+        "description": "Chief Marketing Officer owning marketing channels & growth hacks",
+        "expertise": "marketing strategy, growth hacking, channel optimization, brand positioning",
+        "responsibilities": "owns marketing channels & growth hacks",
+        "type": "c_suite_founding_member",
+        "source": "bootstrapped"
+      }
+    },
+    "CDO-Agent": {
+      "endpoint": "c_suite.cdo_agent.handle_request",
+      "certified": true,
+      "spec": {
+        "description": "Chief Data Officer owning data strategy, quality, and insights",
+        "expertise": "data strategy, analytics, data quality, business intelligence",
+        "responsibilities": "owns data strategy, quality, and insights",
+        "type": "c_suite_founding_member",
+        "source": "bootstrapped"
+      }
+    },
+    "CCO-Agent": {
+      "endpoint": "c_suite.cco_agent.handle_request",
+      "certified": true,
+      "spec": {
+        "description": "Chief Compliance Officer owning compliance, legal, and regulatory risk",
+        "expertise": "legal compliance, regulatory requirements, risk management, business law",
+        "responsibilities": "owns compliance, legal, and regulatory risk",
+        "type": "c_suite_founding_member",
+        "source": "bootstrapped"
+      }
+    },
+    "CFO-Agent": {
+      "endpoint": "c_suite.cfo_agent.handle_request",
+      "certified": true,
+      "spec": {
+        "description": "Chief Financial Officer overseeing budgets, profitability & reinvestment strategy",
+        "expertise": "financial planning, budget management, profitability analysis, investment strategy",
+        "responsibilities": "oversees budgets, profitability & reinvestment strategy",
+        "type": "c_suite_founding_member",
+        "source": "bootstrapped"
+      }
+    },
+    "CCSO-Agent": {
+      "endpoint": "c_suite.ccso_agent.handle_request",
+      "certified": true,
+      "spec": {
+        "description": "Chief Customer Success Officer owning post-purchase journey: onboarding, support, retention & advocacy",
+        "expertise": "customer success, onboarding, support systems, retention strategies",
+        "responsibilities": "owns post-purchase journey: onboarding, support, retention & advocacy",
+        "type": "c_suite_founding_member",
+        "source": "bootstrapped"
+      }
     }
   },
   "tools": {
@@ -63,6 +162,154 @@
       "type": "webhook",
       "endpoint_details": {
         "url": "http://localhost:5678/webhook-test/calendar-placeholder",
+        "method": "POST"
+      },
+      "authentication": {
+        "type": "none"
+      },
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "task_description": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "task_description"
+        ]
+      },
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          }
+        }
+      },
+      "source": "auto-provisioned"
+    },
+    "email": {
+      "description": "Auto-provisioned stub for tool: email",
+      "type": "webhook",
+      "endpoint_details": {
+        "url": "http://localhost:5678/webhook-test/email-placeholder",
+        "method": "POST"
+      },
+      "authentication": {
+        "type": "none"
+      },
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "task_description": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "task_description"
+        ]
+      },
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          }
+        }
+      },
+      "source": "auto-provisioned"
+    },
+    "file_manager": {
+      "description": "Auto-provisioned stub for tool: file_manager",
+      "type": "webhook",
+      "endpoint_details": {
+        "url": "http://localhost:5678/webhook-test/file_manager-placeholder",
+        "method": "POST"
+      },
+      "authentication": {
+        "type": "none"
+      },
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "task_description": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "task_description"
+        ]
+      },
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          }
+        }
+      },
+      "source": "auto-provisioned"
+    },
+    "social media": {
+      "description": "Auto-provisioned stub for tool: social media",
+      "type": "webhook",
+      "endpoint_details": {
+        "url": "http://localhost:5678/webhook-test/social_media-placeholder",
+        "method": "POST"
+      },
+      "authentication": {
+        "type": "none"
+      },
+      "request_schema": {
+        "type": "object",
+        "properties": {
+          "task_description": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "task_description"
+        ]
+      },
+      "response_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          }
+        }
+      },
+      "source": "auto-provisioned"
+    },
+    "marketing": {
+      "description": "Auto-provisioned stub for tool: marketing",
+      "type": "webhook",
+      "endpoint_details": {
+        "url": "http://localhost:5678/webhook-test/marketing-placeholder",
         "method": "POST"
       },
       "authentication": {
