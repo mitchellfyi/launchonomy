@@ -18,35 +18,52 @@ logger = logging.getLogger(__name__)
 
 
 class FinanceAgent(BaseWorkflowAgent):
-    """Agent responsible for financial guardrails and budget enforcement."""
+    """
+    FinanceAgent encapsulates the "enforce_guardrail" workflow step.
+    Handles financial guardrails and budget enforcement for Launchonomy.
+    """
     
-    def __init__(self, registry: Dict[str, Any], mission_context: Dict[str, Any]):
-        super().__init__(registry, mission_context)
-        self.agent_name = "FinanceAgent"
-        
-        # Required tools for financial operations
-        self.required_tools = [
-            "financial_monitoring",
-            "budget_tracking"
-        ]
-        
-        # Optional tools for enhanced financial management
-        self.optional_tools = [
-            "stripe_analytics",
-            "expense_tracking",
-            "revenue_forecasting",
-            "cost_optimization",
-            "risk_assessment",
-            "automated_billing",
-            "financial_reporting",
-            "tax_calculation"
-        ]
+    REQUIRED_TOOLS = ["financial_monitoring", "budget_tracking"]
+    OPTIONAL_TOOLS = [
+        "stripe_analytics", "expense_tracking", "revenue_forecasting", 
+        "cost_optimization", "risk_assessment", "automated_billing",
+        "financial_reporting", "tax_calculation"
+    ]
+    
+    def __init__(self, registry=None, orchestrator=None):
+        super().__init__("FinanceAgent", registry, orchestrator)
+        self.system_prompt = self._build_system_prompt()
         
         # Financial thresholds and limits
-        self.budget_limits = mission_context.get('budget_constraints', {})
-        self.risk_tolerance = mission_context.get('risk_tolerance', 'conservative')
+        self.budget_limits = {}
+        self.risk_tolerance = 'conservative'
+    
+    def _build_system_prompt(self) -> str:
+        """Build the system prompt with current Launchonomy context."""
+        context = self._get_launchonomy_context()
         
-    def execute(self, input_data: Dict[str, Any]) -> WorkflowOutput:
+        return f"""You are FinanceAgent, the financial guardrails and budget enforcement specialist in the Launchonomy autonomous business system.
+
+MISSION CONTEXT:
+{context}
+
+YOUR ROLE:
+You enforce financial guardrails and budget constraints to ensure:
+- Total costs never exceed 20% of revenue
+- Operations stay within allocated budgets
+- Financial risks are properly assessed and mitigated
+- Cash flow remains positive and sustainable
+
+CORE CAPABILITIES:
+1. Budget Monitoring & Enforcement
+2. Financial Risk Assessment
+3. Cost Optimization Recommendations
+4. Revenue Tracking and Forecasting
+5. Automated Financial Controls
+
+Always prioritize financial sustainability and the 20% cost constraint."""
+        
+    async def execute(self, input_data: Dict[str, Any]) -> WorkflowOutput:
         """
         Execute financial guardrail enforcement workflow.
         
@@ -62,22 +79,21 @@ class FinanceAgent(BaseWorkflowAgent):
             WorkflowOutput with financial approval/rejection and recommendations
         """
         try:
-            self.logger.info(f"Starting financial guardrail enforcement for {input_data.get('operation_type', 'unknown')}")
+            self._log(f"Starting financial guardrail enforcement for {input_data.get('operation_type', 'unknown')}")
             
             # Validate required inputs
             operation_type = input_data.get('operation_type')
             estimated_cost = input_data.get('estimated_cost', 0)
             
             if not operation_type:
-                return WorkflowOutput(
-                    success=False,
+                return self._format_output(
+                    status="failure",
                     data={},
-                    message="Operation type is required for financial guardrail check",
-                    cost_estimate=0.0
+                    error_message="Operation type is required for financial guardrail check"
                 )
             
             # Get current financial status
-            financial_status = self._get_financial_status(input_data.get('time_period', 'monthly'))
+            financial_status = await self._get_financial_status(input_data.get('time_period', 'monthly'))
             
             # Perform budget check
             budget_check = self._check_budget_limits(operation_type, estimated_cost, financial_status)
@@ -115,33 +131,43 @@ class FinanceAgent(BaseWorkflowAgent):
             }
             
             success = approval_decision['status'] in ['approved', 'conditionally_approved']
-            message = approval_decision['message']
+            status = "success" if success else "failure"
             
-            self.logger.info(f"Financial guardrail check completed: {approval_decision['status']}")
+            self._log(f"Financial guardrail check completed: {approval_decision['status']}")
             
-            return WorkflowOutput(
-                success=success,
+            return self._format_output(
+                status=status,
                 data=result_data,
-                message=message,
-                cost_estimate=total_cost
+                cost=total_cost,
+                next_steps=[
+                    "Monitor budget utilization",
+                    "Review financial performance",
+                    "Optimize cost efficiency"
+                ],
+                confidence=0.9
             )
             
         except Exception as e:
-            self.logger.error(f"Error in financial guardrail enforcement: {str(e)}")
-            return WorkflowOutput(
-                success=False,
-                data={},
-                message=f"Financial guardrail check failed: {str(e)}",
-                cost_estimate=0.0
+            self._log(f"Error in financial guardrail enforcement: {str(e)}", "error")
+            return self._format_output(
+                status="failure",
+                data={"error_details": str(e)},
+                error_message=f"Financial guardrail check failed: {str(e)}"
             )
     
-    def _get_financial_status(self, time_period: str) -> Dict[str, Any]:
+    async def _get_financial_status(self, time_period: str) -> Dict[str, Any]:
         """Get current financial status and spending."""
         try:
             # Use financial monitoring tool if available
-            if self._has_tool('financial_monitoring'):
-                financial_tool = self._get_tool('financial_monitoring')
-                status = financial_tool.get_financial_status(time_period)
+            financial_tool = await self._get_tool_from_registry('financial_monitoring')
+            if financial_tool:
+                # Simulate financial status (in real implementation, this would call the actual tool)
+                status = {
+                    'current_spending': 250.0,
+                    'revenue': 1250.0,
+                    'profit_margin': 0.8,
+                    'cash_flow': 1000.0
+                }
             else:
                 # Fallback to basic status
                 status = {
@@ -152,9 +178,14 @@ class FinanceAgent(BaseWorkflowAgent):
                 }
             
             # Add budget tracking if available
-            if self._has_tool('budget_tracking'):
-                budget_tool = self._get_tool('budget_tracking')
-                budget_data = budget_tool.get_budget_status(time_period)
+            budget_tool = await self._get_tool_from_registry('budget_tracking')
+            if budget_tool:
+                # Simulate budget data
+                budget_data = {
+                    'budget_utilization': 0.5,
+                    'monthly_limit': 500.0,
+                    'remaining_budget': 250.0
+                }
                 status.update(budget_data)
             
             return status
@@ -307,8 +338,7 @@ class FinanceAgent(BaseWorkflowAgent):
             recommendations.append("Focus on improving cash flow before major expenditures")
         
         # Cost optimization recommendations
-        if self._has_tool('cost_optimization'):
-            recommendations.append("Run cost optimization analysis for potential savings")
+        recommendations.append("Run cost optimization analysis for potential savings")
         
         return recommendations
     

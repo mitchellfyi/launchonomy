@@ -1464,6 +1464,277 @@ You are part of the founding C-Suite team working together through consensus to 
             self._log(f"Error during auto-provisioning attempt for tool '{tool_name}': {str(e)}", "error")
             return None
 
+    async def run_continuous_launch_growth_loop(self, mission_context: Dict[str, Any], max_iterations: int = 100) -> Dict[str, Any]:
+        """
+        Run the continuous launch and growth loop using dynamic agent calls through the registry.
+        
+        This replaces one-off calls with a persistent while True loop that orchestrates via 
+        registry-looked-up agents as specified in Task 3.
+        
+        Args:
+            mission_context: Dictionary containing mission details and constraints
+            max_iterations: Maximum number of loop iterations to prevent infinite loops
+            
+        Returns:
+            Dictionary with loop execution summary and final state
+        """
+        self._log("Starting Continuous Launch & Growth Loop", "info")
+        
+        # Initialize context with mission details
+        context = {
+            "mission": mission_context.get("overall_mission", ""),
+            "constraints": mission_context.get("constraints", {}),
+            "iteration": 0,
+            "total_revenue": 0.0,
+            "loop_history": []
+        }
+        
+        loop_summary = {
+            "total_iterations": 0,
+            "total_revenue_generated": 0.0,
+            "guardrail_breaches": 0,
+            "successful_cycles": 0,
+            "failed_cycles": 0,
+            "final_status": "unknown",
+            "execution_log": []
+        }
+        
+        try:
+            iteration = 0
+            while iteration < max_iterations:
+                iteration += 1
+                context["iteration"] = iteration
+                
+                self._log(f"Starting loop iteration {iteration}", "info")
+                cycle_log = {
+                    "iteration": iteration,
+                    "timestamp": datetime.now().isoformat(),
+                    "steps": {},
+                    "errors": [],
+                    "revenue_generated": 0.0
+                }
+                
+                try:
+                    # Step 1: Scan for opportunities
+                    self._log("Executing ScanAgent", "info")
+                    scan_agent = self.registry.get_agent("ScanAgent", mission_context)
+                    if not scan_agent:
+                        raise Exception("ScanAgent not available in registry")
+                    
+                    scan_out = scan_agent.execute(context)
+                    if hasattr(scan_out, '__await__'):
+                        scan_out = await scan_out
+                    
+                    cycle_log["steps"]["scan"] = {
+                        "status": "completed",
+                        "output_summary": str(scan_out)[:200] + "..." if len(str(scan_out)) > 200 else str(scan_out)
+                    }
+                    
+                    # Step 2: Deploy MVP
+                    self._log("Executing DeployAgent", "info")
+                    deploy_agent = self.registry.get_agent("DeployAgent", mission_context)
+                    if not deploy_agent:
+                        raise Exception("DeployAgent not available in registry")
+                    
+                    deploy_out = deploy_agent.execute(scan_out)
+                    if hasattr(deploy_out, '__await__'):
+                        deploy_out = await deploy_out
+                    
+                    cycle_log["steps"]["deploy"] = {
+                        "status": "completed",
+                        "output_summary": str(deploy_out)[:200] + "..." if len(str(deploy_out)) > 200 else str(deploy_out)
+                    }
+                    
+                    # Step 3: Run marketing campaigns
+                    self._log("Executing CampaignAgent", "info")
+                    campaign_agent = self.registry.get_agent("CampaignAgent", mission_context)
+                    if not campaign_agent:
+                        raise Exception("CampaignAgent not available in registry")
+                    
+                    campaign_out = campaign_agent.execute(deploy_out)
+                    if hasattr(campaign_out, '__await__'):
+                        campaign_out = await campaign_out
+                    
+                    cycle_log["steps"]["campaign"] = {
+                        "status": "completed",
+                        "output_summary": str(campaign_out)[:200] + "..." if len(str(campaign_out)) > 200 else str(campaign_out)
+                    }
+                    
+                    # Step 4: Collect and analyze metrics
+                    self._log("Executing AnalyticsAgent", "info")
+                    analytics_agent = self.registry.get_agent("AnalyticsAgent", mission_context)
+                    if not analytics_agent:
+                        raise Exception("AnalyticsAgent not available in registry")
+                    
+                    metrics = analytics_agent.execute(campaign_out)
+                    if hasattr(metrics, '__await__'):
+                        metrics = await metrics
+                    
+                    cycle_log["steps"]["analytics"] = {
+                        "status": "completed",
+                        "output_summary": str(metrics)[:200] + "..." if len(str(metrics)) > 200 else str(metrics)
+                    }
+                    
+                    # Extract revenue from metrics (handle different possible formats)
+                    revenue = 0.0
+                    if isinstance(metrics, dict):
+                        revenue = metrics.get("revenue", 0.0)
+                        if isinstance(revenue, str):
+                            try:
+                                revenue = float(revenue)
+                            except ValueError:
+                                revenue = 0.0
+                    elif hasattr(metrics, 'data') and isinstance(metrics.data, dict):
+                        revenue = metrics.data.get("revenue", 0.0)
+                    
+                    cycle_log["revenue_generated"] = revenue
+                    context["total_revenue"] += revenue
+                    
+                    # Step 5: Financial guardrail check
+                    self._log("Executing FinanceAgent for guardrail check", "info")
+                    finance_agent = self.registry.get_agent("FinanceAgent", mission_context)
+                    if not finance_agent:
+                        raise Exception("FinanceAgent not available in registry")
+                    
+                    guard = finance_agent.execute(metrics)
+                    if hasattr(guard, '__await__'):
+                        guard = await guard
+                    
+                    cycle_log["steps"]["finance_guard"] = {
+                        "status": "completed",
+                        "output_summary": str(guard)[:200] + "..." if len(str(guard)) > 200 else str(guard)
+                    }
+                    
+                    # Check guardrail response
+                    guard_status = "OK"
+                    if isinstance(guard, dict):
+                        guard_status = guard.get("approval_status", "OK")
+                    elif isinstance(guard, str):
+                        guard_status = guard
+                    elif hasattr(guard, 'data') and isinstance(guard.data, dict):
+                        guard_status = guard.data.get("approval_status", "OK")
+                    
+                    if guard_status == "PAUSE" or "PAUSE" in str(guard_status).upper():
+                        self._log("Guardrail breached; pausing pipeline", "warning")
+                        loop_summary["guardrail_breaches"] += 1
+                        loop_summary["final_status"] = "guardrail_breach"
+                        cycle_log["steps"]["finance_guard"]["breach"] = True
+                        break
+                    
+                    # Step 6: Growth optimization (if revenue > 0)
+                    if revenue > 0:
+                        self._log("Revenue detected, executing GrowthAgent", "info")
+                        growth_agent = self.registry.get_agent("GrowthAgent", mission_context)
+                        if growth_agent:
+                            growth_out = growth_agent.execute(metrics)
+                            if hasattr(growth_out, '__await__'):
+                                growth_out = await growth_out
+                            
+                            cycle_log["steps"]["growth"] = {
+                                "status": "completed",
+                                "output_summary": str(growth_out)[:200] + "..." if len(str(growth_out)) > 200 else str(growth_out)
+                            }
+                        else:
+                            self._log("GrowthAgent not available, skipping growth optimization", "warning")
+                            cycle_log["steps"]["growth"] = {
+                                "status": "skipped",
+                                "reason": "GrowthAgent not available"
+                            }
+                    else:
+                        cycle_log["steps"]["growth"] = {
+                            "status": "skipped",
+                            "reason": "No revenue generated"
+                        }
+                    
+                    # Update context for next iteration
+                    context["loop_history"].append({
+                        "iteration": iteration,
+                        "revenue": revenue,
+                        "total_revenue": context["total_revenue"],
+                        "timestamp": datetime.now().isoformat()
+                    })
+                    
+                    loop_summary["successful_cycles"] += 1
+                    self._log(f"Loop iteration {iteration} completed successfully. Revenue: ${revenue:.2f}", "info")
+                    
+                except Exception as e:
+                    self._log(f"Error in loop iteration {iteration}: {str(e)}", "error")
+                    cycle_log["errors"].append(str(e))
+                    loop_summary["failed_cycles"] += 1
+                    
+                    # Continue to next iteration unless it's a critical error
+                    if "not available in registry" in str(e):
+                        self._log("Critical agent missing, stopping loop", "error")
+                        loop_summary["final_status"] = "critical_agent_missing"
+                        break
+                
+                loop_summary["execution_log"].append(cycle_log)
+                
+                # Add a small delay between iterations to prevent overwhelming
+                await asyncio.sleep(1)
+            
+            # Set final status if not already set
+            if loop_summary["final_status"] == "unknown":
+                if iteration >= max_iterations:
+                    loop_summary["final_status"] = "max_iterations_reached"
+                else:
+                    loop_summary["final_status"] = "completed"
+            
+            loop_summary["total_iterations"] = iteration
+            loop_summary["total_revenue_generated"] = context["total_revenue"]
+            
+            self._log(f"Continuous Launch & Growth Loop completed. Total iterations: {iteration}, Total revenue: ${context['total_revenue']:.2f}", "info")
+            
+        except Exception as e:
+            self._log(f"Critical error in continuous loop: {str(e)}", "error")
+            loop_summary["final_status"] = "critical_error"
+            loop_summary["error"] = str(e)
+        
+        return loop_summary
+
+    def alert(self, message: str):
+        """Alert method for guardrail breaches and other important notifications."""
+        self._log(f"ALERT: {message}", "warning")
+        # In a real implementation, this could send notifications, emails, etc.
+
+    async def execute_continuous_mode(self, mission_context: Dict[str, Any], max_iterations: int = 10) -> Dict[str, Any]:
+        """
+        Execute the orchestrator in continuous mode, replacing the traditional decision cycle approach.
+        
+        This method bootstraps the C-Suite agents and then runs the continuous launch and growth loop.
+        
+        Args:
+            mission_context: Dictionary containing mission details and constraints
+            max_iterations: Maximum number of loop iterations (default 10 for safety)
+            
+        Returns:
+            Dictionary with execution summary and results
+        """
+        self._log("Starting Orchestrator in Continuous Mode", "info")
+        
+        try:
+            # Bootstrap C-Suite agents first
+            await self.bootstrap_c_suite(mission_context.get("overall_mission", ""))
+            
+            # Run the continuous launch and growth loop
+            loop_results = await self.run_continuous_launch_growth_loop(mission_context, max_iterations)
+            
+            return {
+                "mode": "continuous",
+                "status": "completed",
+                "loop_results": loop_results,
+                "message": f"Continuous mode completed with {loop_results['total_iterations']} iterations"
+            }
+            
+        except Exception as e:
+            self._log(f"Error in continuous mode execution: {str(e)}", "error")
+            return {
+                "mode": "continuous",
+                "status": "error",
+                "error": str(e),
+                "message": f"Continuous mode failed: {str(e)}"
+            }
+
 
 
 # Factory function to create orchestrator (if needed by CLI or other parts)

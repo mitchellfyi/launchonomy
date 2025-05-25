@@ -12,6 +12,7 @@ class Registry:
         self.filepath = filepath if filepath else os.path.join(os.path.dirname(__file__), DEFAULT_REGISTRY_FILE)
         self.agents: Dict[str, Dict[str, Any]] = {}
         self.tools: Dict[str, Dict[str, Any]] = {}
+        self._agent_instances: Dict[str, Any] = {}  # Cache for instantiated agents
         self.load()
 
     def load(self):
@@ -67,6 +68,57 @@ class Registry:
         """Retrieves a tool's specification."""
         return self.tools.get(name)
 
+    def get_agent(self, agent_name: str, mission_context: Optional[Dict[str, Any]] = None):
+        """
+        Get an instantiated agent by name. Returns cached instance if available,
+        otherwise creates a new instance based on the registry specification.
+        
+        Args:
+            agent_name: Name of the agent to retrieve
+            mission_context: Optional mission context to pass to workflow agents
+            
+        Returns:
+            Agent instance or None if not found/failed to instantiate
+        """
+        # Return cached instance if available
+        if agent_name in self._agent_instances:
+            return self._agent_instances[agent_name]
+        
+        # Get agent specification
+        agent_spec = self.get_agent_spec(agent_name)
+        if not agent_spec:
+            logger.error(f"Agent '{agent_name}' not found in registry")
+            return None
+        
+        try:
+            # Handle workflow agents (those with module/class specification)
+            if 'module' in agent_spec and 'class' in agent_spec:
+                module_name = agent_spec['module']
+                class_name = agent_spec['class']
+                
+                # Import the module and get the class
+                import importlib
+                module = importlib.import_module(module_name)
+                agent_class = getattr(module, class_name)
+                
+                # Instantiate workflow agent with registry and mission context
+                agent_instance = agent_class(self, mission_context or {})
+                
+            else:
+                # Handle other agent types (like C-Suite agents)
+                # For now, return a placeholder that can execute basic operations
+                logger.warning(f"Agent '{agent_name}' does not have module/class specification. Creating placeholder.")
+                agent_instance = AgentPlaceholder(agent_name, agent_spec)
+            
+            # Cache the instance
+            self._agent_instances[agent_name] = agent_instance
+            logger.info(f"Successfully instantiated agent: {agent_name}")
+            return agent_instance
+            
+        except Exception as e:
+            logger.error(f"Failed to instantiate agent '{agent_name}': {str(e)}", exc_info=True)
+            return None
+
     def apply_proposal(self, proposal: Dict[str, Any]):
         """Applies a provisioning proposal to the registry."""
         proposal_type = proposal.get("type")
@@ -99,6 +151,28 @@ class Registry:
         """Retrieves the endpoint for a given agent."""
         agent_info = self.agents.get(agent_name)
         return agent_info.get("endpoint") if agent_info else None
+
+
+class AgentPlaceholder:
+    """Placeholder for agents that don't have direct module/class implementations."""
+    
+    def __init__(self, name: str, spec: Dict[str, Any]):
+        self.name = name
+        self.spec = spec
+        
+    def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute method for placeholder agents."""
+        logger.info(f"Executing placeholder agent: {self.name}")
+        
+        # Return a basic response structure
+        return {
+            "agent": self.name,
+            "status": "executed",
+            "message": f"Placeholder execution for {self.name}",
+            "context_received": bool(context),
+            "spec": self.spec.get('spec', {})
+        }
+
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')

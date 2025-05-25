@@ -2,6 +2,8 @@
 
 An AI-powered autonomous business mission system that uses a collaborative team of specialized AI agents to achieve business objectives with minimal human intervention. The system features a founding C-Suite team of AI agents that work together through consensus-based decision making to execute business missions.
 
+**Built with**: Cursor IDE + Claude 4 Sonnet + ChatGPT o4-mini
+
 ## Key Features
 
 - 🤖 **Autonomous C-Suite Team**: Auto-bootstraps with 9 specialized AI agents (CEO, CRO, CTO, CPO, CMO, CDO, CCO, CFO, CCSO)

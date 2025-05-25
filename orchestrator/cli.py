@@ -1001,7 +1001,9 @@ async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger
 @click.argument('mission', required=False)
 @click.option('--debug', is_flag=True, help="Enable DEBUG level logging.")
 @click.option('--new', is_flag=True, help="Force start a new mission (skip resume menu).")
-def main(mission: Optional[str] = None, debug: bool = False, new: bool = False):
+@click.option('--continuous', is_flag=True, help="Run in continuous launch & growth loop mode.")
+@click.option('--max-iterations', default=10, help="Maximum iterations for continuous mode (default: 10).")
+def main(mission: Optional[str] = None, debug: bool = False, new: bool = False, continuous: bool = False, max_iterations: int = 10):
     """Run an autonomous business mission with orchestrator and user interaction.
     
     On startup, you'll see a menu to either resume a previous mission or start a new one.
