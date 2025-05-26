@@ -2,7 +2,7 @@
 
 A comprehensive system for orchestrating AI agents to build and grow autonomous businesses through C-Suite strategic decision-making and workflow automation.
 
-[]|(screenshot-agents.png)
+![]|(https://github.com/mitchellfyi/launchonomy/blob/main/docs/screenshot-agents.png?raw=true)
 
 ## 🤖 Built With AI
 
@@ -24,43 +24,73 @@ This project is built using cutting-edge AI development tools and frameworks:
 
 ### Installation
 
+#### Option 1: Install directly from GitHub (Recommended)
+```bash
+pip install git+https://github.com/mitchellfyi/launchonomy.git
+```
+
+#### Option 2: Install from source
 1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone https://github.com/mitchellfyi/launchonomy.git
 cd launchonomy
 ```
 
-2. Install dependencies:
+2. Install in development mode:
 ```bash
-pip install -r requirements.txt
+pip install -e .
 ```
 
-3. Set up your OpenAI API key:
+#### Option 3: Install with development dependencies
+```bash
+pip install "git+https://github.com/mitchellfyi/launchonomy.git[dev]"
+```
+
+### Setup
+
+Set up your OpenAI API key:
 ```bash
 export OPENAI_API_KEY="your-api-key-here"
 # Or create a .env file with: OPENAI_API_KEY=your-api-key-here
 ```
 
+### Verify Installation
+
+Test that everything is working correctly:
+```bash
+python tests/test_install.py
+```
+
+Or test the CLI directly:
+```bash
+launchonomy --help
+```
+
 ### Running Launchonomy
 
-#### Option 1: Using the main entry point (recommended)
+#### Option 1: Using the installed command (after pip install)
+```bash
+launchonomy
+```
+
+#### Option 2: With specific mission
+```bash
+launchonomy "Build a profitable SaaS application"
+```
+
+#### Option 3: Force new mission (skip resume menu)
+```bash
+launchonomy --new "Create an AI-powered newsletter service"
+```
+
+#### Option 4: From source (if not installed)
 ```bash
 python main.py
 ```
 
-#### Option 2: Direct module execution
+#### Option 5: Direct module execution
 ```bash
 python -m launchonomy.cli
-```
-
-#### Option 3: With specific mission
-```bash
-python main.py "Build a profitable SaaS application"
-```
-
-#### Option 4: Force new mission (skip resume menu)
-```bash
-python main.py --new "Create an AI-powered newsletter service"
 ```
 
 ## 🎯 How It Works
@@ -189,7 +219,7 @@ launchonomy/
 
 Launchonomy automatically detects resumable missions and presents a menu:
 
-[](screenshot-missions.png)
+![](https://github.com/mitchellfyi/launchonomy/blob/main/docs/screenshot-missions.png?raw=true)
 
 ### Mission Log Analysis
 

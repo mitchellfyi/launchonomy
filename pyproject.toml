@@ -1,0 +1,106 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "launchonomy"
+version = "0.1.0"
+authors = [
+    {name = "Mitchell", email = "hello@mitchell.fyi"},
+]
+description = "Autonomous AI Business Orchestration System"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
+keywords = [
+    "ai",
+    "agents", 
+    "autogen",
+    "business",
+    "automation",
+    "orchestration",
+    "machine-learning",
+    "artificial-intelligence",
+    "multi-agent",
+    "workflow",
+]
+dependencies = [
+    "autogen-core>=0.4.0",
+    "autogen-ext[openai]>=0.4.0",
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "click>=8.1.0",
+    "rich>=13.0.0",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.0.0",
+    "aiohttp>=3.9.0",
+    "httpx>=0.25.0",
+    "orjson>=3.9.0",
+    "structlog>=23.0.0",
+    "prometheus-client>=0.19.0",
+    "chromadb>=0.4.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+    "mypy>=1.0.0",
+]
+docs = [
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/mitchellfyi/launchonomy"
+Documentation = "https://github.com/mitchellfyi/launchonomy/tree/main/docs"
+Repository = "https://github.com/mitchellfyi/launchonomy"
+"Bug Tracker" = "https://github.com/mitchellfyi/launchonomy/issues"
+
+[project.scripts]
+launchonomy = "launchonomy.cli:main"
+launchonomy-cli = "launchonomy.cli:main"
+
+[tool.setuptools]
+packages = ["launchonomy"]
+
+[tool.setuptools.package-data]
+launchonomy = [
+    "registry/*.json",
+    "templates/*.txt", 
+    "templates/*.json",
+]
+
+[tool.black]
+line-length = 100
+target-version = ['py38']
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+asyncio_mode = "auto" 

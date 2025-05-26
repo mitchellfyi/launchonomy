@@ -50,6 +50,18 @@ Tests the mission-scoped RAG memory system integration.
 - **Run**: `python tests/test_memory_integration.py`
 - **Requirements**: ChromaDB (automatically installed with requirements)
 
+#### `test_install.py`
+Tests the package installation and verifies all components are working correctly.
+- **Purpose**: Validates that Launchonomy was installed correctly and all modules can be imported
+- **Features Tested**:
+  - Core package import functionality
+  - CLI module availability
+  - Core orchestrator import
+  - Registry system import
+  - CLI entry point functionality
+- **Run**: `python tests/test_install.py`
+- **Requirements**: None (basic installation test)
+
 ### Workflow and Integration Tests
 
 #### `test_continuous_loop.py`
@@ -130,7 +142,8 @@ Integration tests for auto-provisioning across system restarts.
 From the project root directory:
 
 ```bash
-# Core functionality tests
+# Installation and core functionality tests
+python tests/test_install.py
 python tests/test_agent_loading.py
 python tests/test_mission_linking.py
 python tests/test_auto_provision.py
@@ -150,6 +163,7 @@ python tests/test_auto_provision_integration.py
 
 To run all tests that don't require API keys:
 ```bash
+python tests/test_install.py
 python tests/test_agent_loading.py
 python tests/test_mission_linking.py
 python tests/test_memory_integration.py
@@ -170,6 +184,7 @@ done
 ## Test Categories
 
 ### 🟢 No API Key Required
+- `test_install.py`
 - `test_agent_loading.py`
 - `test_mission_linking.py`
 - `test_memory_integration.py`
