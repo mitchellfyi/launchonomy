@@ -269,33 +269,16 @@ class MissionMonitor:
             line_length = 70
             activity_lines = []
             
-            while activity_msg:
-                if len(activity_msg) <= line_length:
-                    activity_lines.append(activity_msg)
-                    break
-                else:
-                    # Find a good break point (space or punctuation)
-                    break_point = line_length
-                    for i in range(line_length, max(0, line_length - 20), -1):
-                        if activity_msg[i] in ' .,;:-':
-                            break_point = i
-                            break
-                    
-                    activity_lines.append(activity_msg[:break_point].strip())
-                    activity_msg = activity_msg[break_point:].strip()
-                    
-                    if len(activity_lines) >= 3:  # Limit to 3 lines
-                        if activity_msg:
-                            activity_lines[-1] += "..."
-                        break
+            # Simply truncate to 100 characters
+            if len(activity_msg) > 70:
+                activity_msg = activity_msg[:67] + "..."
             
-            # Add the first activity line
-            activity_text.append(activity_lines[0] if activity_lines else "", style="italic dim")
+            activity_text.append(activity_msg, style="italic dim")
             status_lines.append(activity_text)
             
             # Add additional activity lines if they exist
             for line in activity_lines[1:]:
-                status_lines.append(Text.assemble(Text("         ", style="dim"), Text(line, style="italic dim")))
+                status_lines.append(Text(line, style="italic dim"))
         else:
             status_lines.append(Text("Activity: Idle", style="dim"))
         
@@ -848,18 +831,85 @@ async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger
                 "accepted_cycles": accepted_cycle_outcomes_summary
             }
             
-            loop_results = await orchestrator.run_continuous_launch_growth_loop(
-                mission_context=mission_context,
-                max_iterations=max_iterations
-            )
+            # Run continuous loop with user continuation option
+            total_iterations_run = 0
+            all_execution_logs = []
+            all_csuite_decisions = []
+            final_loop_results = None
+            
+            while True:
+                loop_results = await orchestrator.run_continuous_launch_growth_loop(
+                    mission_context=mission_context,
+                    max_iterations=max_iterations
+                )
+                
+                # Accumulate results
+                total_iterations_run += loop_results.get("total_iterations", 0)
+                all_execution_logs.extend(loop_results.get("execution_log", []))
+                all_csuite_decisions.extend(loop_results.get("csuite_decisions", []))
+                final_loop_results = loop_results
+                
+                # Check if max iterations were reached
+                if loop_results.get("final_status") == "max_iterations_reached":
+                    # Stop the live display to show user prompt
+                    monitor.set_overall_status(f"Reached {max_iterations} iterations. Asking user to continue...", is_running=False)
+                    live.update(monitor.layout)
+                    live.stop()
+                    
+                    # Show current progress
+                    rprint(Panel(
+                        f"[bold]Iterations Completed:[/bold] {total_iterations_run}\n"
+                        f"[bold]Successful Cycles:[/bold] {loop_results.get('successful_cycles', 0)}\n"
+                        f"[bold]Failed Cycles:[/bold] {loop_results.get('failed_cycles', 0)}\n"
+                        f"[bold]Revenue Generated:[/bold] ${loop_results.get('total_revenue_generated', 0.0):.2f}\n"
+                        f"[bold]Status:[/bold] {loop_results.get('final_status', 'unknown')}",
+                        title="[bold yellow]Mission Progress Update[/bold yellow]",
+                        border_style="yellow"
+                    ))
+                    
+                    # Ask user if they want to continue
+                    continue_mission = Confirm.ask(
+                        f"\n[bold cyan]Maximum iterations ({max_iterations}) reached. Continue with another {max_iterations} iterations?[/bold cyan]",
+                        default=True
+                    )
+                    
+                    if continue_mission:
+                        # Restart live display and continue
+                        live.start()
+                        monitor.set_overall_status("Continuing C-Suite Orchestrated Mission...", is_running=True)
+                        monitor.update(overall_mission_string)
+                        
+                        # Update mission context with latest results for next iteration batch
+                        mission_context["previous_results"] = {
+                            "total_iterations": total_iterations_run,
+                            "revenue_generated": loop_results.get("total_revenue_generated", 0.0),
+                            "successful_cycles": loop_results.get("successful_cycles", 0),
+                            "failed_cycles": loop_results.get("failed_cycles", 0)
+                        }
+                        continue
+                    else:
+                        # User chose to stop
+                        final_loop_results["final_status"] = "stopped_by_user"
+                        break
+                else:
+                    # Mission completed naturally (success, failure, etc.)
+                    break
+            
+            # Combine all results for final reporting
+            combined_results = {
+                **final_loop_results,
+                "total_iterations": total_iterations_run,
+                "execution_log": all_execution_logs,
+                "csuite_decisions": all_csuite_decisions
+            }
             
             # Update mission log with continuous loop results
-            overall_log.total_mission_cost += loop_results.get("total_cost", 0.0)
-            overall_log.final_status = loop_results.get("final_status", "completed")
-            overall_log.last_activity_description = f"C-Suite orchestrated: {loop_results.get('successful_cycles', 0)} successful cycles, ${loop_results.get('total_revenue_generated', 0.0):.2f} revenue"
+            overall_log.total_mission_cost += combined_results.get("total_cost", 0.0)
+            overall_log.final_status = combined_results.get("final_status", "completed")
+            overall_log.last_activity_description = f"C-Suite orchestrated: {combined_results.get('successful_cycles', 0)} successful cycles, ${combined_results.get('total_revenue_generated', 0.0):.2f} revenue"
             
             # Convert continuous loop execution log to decision cycles format
-            execution_log = loop_results.get("execution_log", [])
+            execution_log = combined_results.get("execution_log", [])
             for cycle_log in execution_log:
                 cycle_summary = {
                     "cycle_id": f"csuite_cycle_{cycle_log.get('iteration', 0)}",
@@ -886,26 +936,28 @@ async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger
             # Update total decision cycles count
             overall_log.total_decision_cycles = len(overall_log.decision_cycles_summary)
             
-            # Display results
-            monitor.set_overall_status(f"C-Suite Mission Complete: {loop_results.get('final_status', 'unknown')}", is_running=False)
+            # Display final results
+            if not live.is_started:
+                live.start()
+            monitor.set_overall_status(f"C-Suite Mission Complete: {combined_results.get('final_status', 'unknown')}", is_running=False)
             live.update(monitor.layout)
             live.stop()
             
-            status_color = "green" if loop_results.get("status") == "completed" else "red"
+            status_color = "green" if combined_results.get("status") == "completed" else "red"
             rprint(Panel(
                 f"[bold]Mode:[/bold] C-Suite Orchestrated Mission\n"
-                f"[bold]Status:[/bold] {loop_results.get('final_status', 'unknown')}\n"
-                f"[bold]Iterations:[/bold] {loop_results.get('total_iterations', 0)}\n"
-                f"[bold]Successful Cycles:[/bold] {loop_results.get('successful_cycles', 0)}\n"
-                f"[bold]Failed Cycles:[/bold] {loop_results.get('failed_cycles', 0)}\n"
-                f"[bold]Revenue Generated:[/bold] ${loop_results.get('total_revenue_generated', 0.0):.2f}\n"
-                f"[bold]C-Suite Decisions:[/bold] {len(loop_results.get('csuite_decisions', []))}",
-                title=f"[bold {status_color}]Mission Results[/bold {status_color}]",
+                f"[bold]Status:[/bold] {combined_results.get('final_status', 'unknown')}\n"
+                f"[bold]Total Iterations:[/bold] {combined_results.get('total_iterations', 0)}\n"
+                f"[bold]Successful Cycles:[/bold] {combined_results.get('successful_cycles', 0)}\n"
+                f"[bold]Failed Cycles:[/bold] {combined_results.get('failed_cycles', 0)}\n"
+                f"[bold]Revenue Generated:[/bold] ${combined_results.get('total_revenue_generated', 0.0):.2f}\n"
+                f"[bold]C-Suite Decisions:[/bold] {len(combined_results.get('csuite_decisions', []))}",
+                title=f"[bold {status_color}]Final Mission Results[/bold {status_color}]",
                 border_style=status_color
             ))
             
-            if loop_results.get("error"):
-                rprint(Panel(f"[bold red]Error:[/bold red] {loop_results.get('error')}", title="Execution Error"))
+            if combined_results.get("error"):
+                rprint(Panel(f"[bold red]Error:[/bold red] {combined_results.get('error')}", title="Execution Error"))
 
     except Exception as e:
         logger.error(f"Critical error during mission execution: {str(e)}", exc_info=True)

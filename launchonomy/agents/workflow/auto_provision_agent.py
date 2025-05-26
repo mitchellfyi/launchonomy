@@ -53,9 +53,30 @@ class AutoProvisionAgent:
         if item_type == "tool" and reason == "not_found":
             # Enhanced triviality detection for common business tools
             trivial_tool_patterns = [
+                # Core business tools
                 "spreadsheet", "calendar", "email", "file", "document", "storage",
                 "crm", "analytics", "payment", "webhook", "api", "database",
-                "social", "marketing", "automation", "integration", "notification"
+                "social", "marketing", "automation", "integration", "notification",
+                
+                # Market research and scanning tools
+                "market", "research", "competitor", "analysis", "trend", "keyword",
+                "monitoring", "scan", "opportunity", "demand",
+                
+                # Deployment and hosting tools
+                "hosting", "domain", "registration", "deploy", "server", "cloud",
+                "infrastructure", "cdn", "ssl", "certificate",
+                
+                # Development tools
+                "code", "generation", "template", "library", "framework", "build",
+                "test", "debug", "version", "git",
+                
+                # Campaign and growth tools
+                "campaign", "advertising", "ads", "content", "seo", "conversion",
+                "funnel", "growth", "viral", "referral", "retention",
+                
+                # Analytics and tracking tools
+                "tracking", "metrics", "dashboard", "reporting", "insights",
+                "performance", "optimization", "ab_test", "cohort"
             ]
             
             if any(pattern in item_name.lower() for pattern in trivial_tool_patterns):

@@ -94,6 +94,46 @@ class BaseWorkflowAgent(ABC):
         
         return None
     
+    async def _execute_tool(self, tool_spec: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a tool with the given parameters."""
+        if not tool_spec:
+            return {"status": "error", "error": "No tool specification provided"}
+        
+        try:
+            # For now, return a mock successful response since we don't have real tool implementations
+            # In a real system, this would make HTTP requests to the tool endpoints
+            tool_name = tool_spec.get("description", "Unknown Tool")
+            self._log(f"Executing tool: {tool_name}", "debug")
+            
+            # Simulate tool execution based on tool type
+            if "webhook" in tool_spec.get("type", ""):
+                # Simulate webhook call
+                return {
+                    "status": "success",
+                    "result": {
+                        "message": f"Tool executed successfully",
+                        "parameters_received": parameters,
+                        "tool_type": tool_spec.get("type", "unknown")
+                    },
+                    "tool_name": tool_name
+                }
+            else:
+                # Generic tool execution
+                return {
+                    "status": "success", 
+                    "result": {
+                        "message": f"Tool {tool_name} executed",
+                        "data": parameters
+                    }
+                }
+                
+        except Exception as e:
+            self._log(f"Error executing tool: {str(e)}", "error")
+            return {
+                "status": "error",
+                "error": str(e)
+            }
+    
     def _format_output(self, status: str, data: Dict[str, Any], **kwargs) -> WorkflowOutput:
         """Format output in standardized format."""
         return WorkflowOutput(

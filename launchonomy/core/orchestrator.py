@@ -62,7 +62,7 @@ class OrchestrationAgent(RoutedAgent):
         self.last_revision_plan: Optional[str] = None
 
         # Initialize modular components
-        self.registry = Registry()
+        self.registry = Registry(orchestrator=self)
         self.mission_manager = MissionManager()
         self.communicator = AgentCommunicator()
         self.review_manager = ReviewManager(self.communicator)

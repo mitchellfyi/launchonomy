@@ -248,6 +248,32 @@ def test_cli_import():
         print(f"❌ CLI import failed: {e}")
         return False
 
+def test_csuite_registry_separation():
+    """Test that C-Suite agents are properly separated from the registry."""
+    print("\n🧪 Testing C-Suite registry separation...")
+    
+    # Import and run the C-Suite registry separation test
+    import subprocess
+    import sys
+    import os
+    
+    # Run the C-Suite registry separation test
+    env = os.environ.copy()
+    env['PYTHONPATH'] = '.'
+    
+    result = subprocess.run([
+        sys.executable, 'tests/test_csuite_registry_separation.py'
+    ], env=env, capture_output=True, text=True, cwd='.')
+    
+    if result.returncode == 0:
+        print("✅ C-Suite registry separation test passed")
+        return True
+    else:
+        print(f"❌ C-Suite registry separation test failed:")
+        print(f"STDOUT: {result.stdout}")
+        print(f"STDERR: {result.stderr}")
+        return False
+
 def main():
     """Run all tests."""
     print("🔍 Running Launchonomy Codebase Health Check")
@@ -260,7 +286,8 @@ def main():
         test_cost_calculation,
         test_schema_validation,
         test_optional_dependencies,
-        test_cli_import
+        test_cli_import,
+        test_csuite_registry_separation
     ]
     
     passed = 0

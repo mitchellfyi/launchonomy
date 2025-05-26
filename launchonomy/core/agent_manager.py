@@ -355,20 +355,8 @@ You are part of the founding C-Suite team working together through consensus to 
                 # Create the agent
                 agent = await self.create_agent(agent_name, spec['persona'], system_prompt)
                 
-                # Add to registry with C-Suite designation (without persisting to file)
-                self.registry.add_agent(
-                    name=agent_name,
-                    endpoint=f"c_suite.{agent_name.lower().replace('-', '_')}.handle_request",
-                    certified=True,
-                    spec={
-                        "description": spec['persona'],
-                        "expertise": spec['expertise'],
-                        "responsibilities": spec['responsibilities'],
-                        "type": "c_suite_founding_member",
-                        "source": "bootstrapped"
-                    },
-                    persist=False  # Don't persist C-Suite agents to registry file
-                )
+                # C-Suite agents are managed in AgentManager only, not in registry
+                # They are temporary and should not appear in registry listings
                 
                 self._log(f"✅ Bootstrapped {agent_name}: {spec['persona']}", "info")
                 

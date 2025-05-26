@@ -1,0 +1,38 @@
+{
+  "description": "Auto-provisioned stub for tool: social_media",
+  "type": "webhook",
+  "endpoint_details": {
+    "url": "http://localhost:5678/webhook-test/social_media-placeholder",
+    "method": "POST"
+  },
+  "authentication": {
+    "type": "none"
+  },
+  "request_schema": {
+    "type": "object",
+    "properties": {
+      "task_description": {
+        "type": "string"
+      },
+      "data": {
+        "type": "object"
+      }
+    },
+    "required": [
+      "task_description"
+    ]
+  },
+  "response_schema": {
+    "type": "object",
+    "properties": {
+      "status": {
+        "type": "string"
+      },
+      "result": {
+        "type": "object"
+      }
+    }
+  },
+  "source": "auto-provisioned",
+  "status": "pending"
+}

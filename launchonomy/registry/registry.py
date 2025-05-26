@@ -31,11 +31,12 @@ class Registry:
         _agent_instances: Cache of instantiated agent objects
     """
     
-    def __init__(self, filepath: Optional[str] = None):
+    def __init__(self, filepath: Optional[str] = None, orchestrator=None):
         self.filepath = filepath if filepath else os.path.join(os.path.dirname(__file__), DEFAULT_REGISTRY_FILE)
         self.agents: Dict[str, Dict[str, Any]] = {}
         self.tools: Dict[str, Dict[str, Any]] = {}
         self._agent_instances: Dict[str, Any] = {}  # Cache for instantiated agents
+        self.orchestrator = orchestrator  # Reference to orchestrator for workflow agent instantiation
         self.load()
 
     def load(self):
@@ -125,8 +126,8 @@ class Registry:
                 module = importlib.import_module(module_name)
                 agent_class = getattr(module, class_name)
                 
-                # Instantiate workflow agent with registry and mission context
-                agent_instance = agent_class(self, mission_context or {})
+                # Instantiate workflow agent with registry and orchestrator
+                agent_instance = agent_class(registry=self, orchestrator=self.orchestrator)
                 
             else:
                 # Handle other agent types (like C-Suite agents)
