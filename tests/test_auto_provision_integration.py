@@ -4,7 +4,7 @@ import os
 import sys
 import logging
 
-# Add the current directory to the path so we can import orchestrator modules
+# Add the current directory to the path so we can import launchonomy modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Configure logging
@@ -16,14 +16,14 @@ def test_imports():
     logger.info("Testing imports...")
     
     try:
-        from orchestrator.registry import Registry
+        from launchonomy.registry.registry import Registry
         logger.info("✓ Registry import successful")
     except ImportError as e:
         logger.error(f"✗ Registry import failed: {e}")
         return False
     
     try:
-        from orchestrator.agents.auto_provision_agent import AutoProvisionAgent
+        from launchonomy.agents.workflow.auto_provision_agent import AutoProvisionAgent
         logger.info("✓ AutoProvisionAgent import successful")
     except ImportError as e:
         logger.error(f"✗ AutoProvisionAgent import failed: {e}")
@@ -36,8 +36,8 @@ def test_auto_provision_agent_initialization():
     logger.info("Testing AutoProvisionAgent initialization...")
     
     try:
-        from orchestrator.registry import Registry
-        from orchestrator.agents.auto_provision_agent import AutoProvisionAgent
+        from launchonomy.registry.registry import Registry
+        from launchonomy.agents.workflow.auto_provision_agent import AutoProvisionAgent
         
         # Create a mock COA object for testing
         class MockCOA:
@@ -65,8 +65,8 @@ def test_triviality_detection():
     logger.info("Testing triviality detection...")
     
     try:
-        from orchestrator.registry import Registry
-        from orchestrator.agents.auto_provision_agent import AutoProvisionAgent
+        from launchonomy.registry.registry import Registry
+        from launchonomy.agents.workflow.auto_provision_agent import AutoProvisionAgent
         
         class MockCOA:
             def __init__(self):
@@ -121,8 +121,8 @@ def test_stub_generation():
     logger.info("Testing stub generation...")
     
     try:
-        from orchestrator.registry import Registry
-        from orchestrator.agents.auto_provision_agent import AutoProvisionAgent
+        from launchonomy.registry.registry import Registry
+        from launchonomy.agents.workflow.auto_provision_agent import AutoProvisionAgent
         
         class MockCOA:
             def __init__(self):

@@ -6,7 +6,7 @@ import sys
 import logging
 import importlib
 
-# Add the current directory to the path so we can import orchestrator modules
+# Add the current directory to the path so we can import launchonomy modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Configure logging
@@ -18,12 +18,12 @@ def test_agent_imports():
     logger.info("Testing workflow agent imports...")
     
     agents = [
-        ("ScanAgent", "orchestrator.agents.scan_agent"),
-        ("DeployAgent", "orchestrator.agents.deploy_agent"),
-        ("CampaignAgent", "orchestrator.agents.campaign_agent"),
-        ("AnalyticsAgent", "orchestrator.agents.analytics_agent"),
-        ("FinanceAgent", "orchestrator.agents.finance_agent"),
-        ("GrowthAgent", "orchestrator.agents.growth_agent")
+        ("ScanAgent", "launchonomy.agents.workflow.scan"),
+        ("DeployAgent", "launchonomy.agents.workflow.deploy"),
+        ("CampaignAgent", "launchonomy.agents.workflow.campaign"),
+        ("AnalyticsAgent", "launchonomy.agents.workflow.analytics"),
+        ("FinanceAgent", "launchonomy.agents.workflow.finance"),
+        ("GrowthAgent", "launchonomy.agents.workflow.growth")
     ]
     
     imported_agents = {}
@@ -47,7 +47,7 @@ def test_agent_instantiation(imported_agents):
     """Test that all workflow agents can be instantiated correctly."""
     logger.info("Testing workflow agent instantiation...")
     
-    from orchestrator.registry import Registry
+    from launchonomy.registry.registry import Registry
     
     registry = Registry()
     
@@ -135,7 +135,7 @@ def test_registry_registration():
     """Test that all workflow agents are properly registered in the registry."""
     logger.info("Testing workflow agent registry registration...")
     
-    from orchestrator.registry import Registry
+    from launchonomy.registry.registry import Registry
     
     registry = Registry()
     

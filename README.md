@@ -123,6 +123,167 @@ Mission logs are saved as JSON files with parameterized names:
 mission_logs/mission_20250526_005050_test_reorganized_codebase.json
 ```
 
+## 🤖 Agents & Tools Reference
+
+### Core Orchestration
+
+#### OrchestrationAgent
+**Role**: Main mission orchestrator and strategic coordinator  
+**Description**: Manages the entire mission lifecycle, coordinates between agents, handles C-Suite orchestration, and makes high-level strategic decisions. Acts as the central hub for all mission activities.
+
+#### AgentManager  
+**Role**: Agent lifecycle management  
+**Description**: Handles technical aspects of agent creation, loading, and initialization. Manages the agent registry and bootstraps specialized agents when needed.
+
+#### MissionManager
+**Role**: Mission persistence and logging  
+**Description**: Manages mission logs, handles mission resumability, tracks decision cycles, and maintains comprehensive mission history.
+
+#### AgentCommunicator
+**Role**: Inter-agent communication  
+**Description**: Handles communication between agents, manages JSON parsing with fallbacks, and facilitates peer review processes.
+
+### C-Suite Strategic Agents
+
+#### CEO-Agent
+**Role**: Chief Executive Officer - Strategic oversight  
+**Description**: Provides high-level strategic direction, makes final mission decisions, and ensures alignment with overall business objectives.
+
+#### CRO-Agent  
+**Role**: Chief Revenue Officer - Revenue strategy  
+**Description**: Focuses on revenue generation strategies, customer acquisition planning, and sales optimization decisions.
+
+#### CTO-Agent
+**Role**: Chief Technology Officer - Technical strategy  
+**Description**: Makes technology stack decisions, oversees product development strategy, and ensures technical feasibility of initiatives.
+
+#### CFO-Agent
+**Role**: Chief Financial Officer - Financial oversight  
+**Description**: Manages budget allocation, enforces financial guardrails, approves expenditures, and ensures profitability targets.
+
+### Workflow Agents
+
+#### ScanAgent
+**Role**: Market opportunity scanner  
+**Description**: Identifies and researches potential business opportunities, analyzes market demand, assesses competition, and ranks opportunities based on Launchonomy criteria (speed to first customer, budget constraints, automation potential).
+
+**Key Capabilities**:
+- Market opportunity identification
+- Competitive analysis  
+- Feasibility assessment
+- Opportunity ranking and scoring
+
+#### DeployAgent
+**Role**: MVP deployment specialist  
+**Description**: Builds and deploys minimum viable products rapidly. Handles architecture planning, technology stack selection, infrastructure setup, and essential integrations for immediate customer acquisition.
+
+**Key Capabilities**:
+- MVP architecture design
+- Rapid development & deployment
+- Essential integrations (payments, analytics, email)
+- Launch preparation and validation
+
+#### CampaignAgent
+**Role**: Customer acquisition and marketing specialist  
+**Description**: Designs, executes, and optimizes customer acquisition campaigns across multiple channels. Focuses on getting the first paying customer quickly while maintaining cost efficiency.
+
+**Key Capabilities**:
+- Multi-channel campaign strategy
+- Campaign execution and automation
+- Performance optimization and A/B testing
+- Cost management and ROI optimization
+
+#### AnalyticsAgent
+**Role**: Business metrics and insights specialist  
+**Description**: Collects, analyzes, and reports on key business metrics including revenue, customer acquisition, conversion rates, and operational efficiency. Provides data-driven insights for decision making.
+
+**Key Capabilities**:
+- Comprehensive metrics collection
+- KPI dashboard creation
+- Trend analysis and predictions
+- Performance threshold monitoring
+
+#### FinanceAgent
+**Role**: Financial guardrails and budget enforcement  
+**Description**: Enforces financial constraints, monitors budget utilization, assesses financial risks, and ensures operations stay within the <20% cost ratio guardrail.
+
+**Key Capabilities**:
+- Budget limit enforcement
+- Financial risk assessment
+- Cost tracking and monitoring
+- Approval/rejection decisions for expenditures
+
+#### GrowthAgent
+**Role**: Growth optimization and scaling specialist  
+**Description**: Handles growth loop execution, designs and runs growth experiments, optimizes conversion funnels, and scales successful initiatives while maintaining profitability.
+
+**Key Capabilities**:
+- Growth opportunity analysis
+- Experiment design and execution
+- Growth loop optimization
+- Scaling strategy development
+
+### Utility Components
+
+#### Registry
+**Role**: Agent discovery and management system  
+**Description**: Maintains a registry of available agents, their capabilities, and specifications. Enables dynamic agent discovery and loading.
+
+#### AutoProvisionAgent
+**Role**: Automatic tool and agent provisioning  
+**Description**: Handles automatic provisioning of trivial tools and agents when specialized capabilities are needed but not available.
+
+#### ReviewManager
+**Role**: Peer review coordination  
+**Description**: Manages peer review processes between agents, facilitates consensus building, and ensures quality control in agent decisions.
+
+### Tools & Integrations
+
+#### Required Tools
+- **hosting**: Web hosting and infrastructure management
+- **domain_registration**: Domain name registration and DNS management
+- **email_marketing**: Email campaign management and automation
+- **social_media**: Social media posting and engagement
+- **analytics_platform**: Core analytics and tracking
+- **financial_monitoring**: Budget and expense tracking
+- **payment_processing**: Payment gateway integration
+
+#### Optional Tools
+- **market_research**: Market analysis and competitive intelligence
+- **competitor_analysis**: Competitive landscape analysis
+- **trend_analysis**: Market trend identification
+- **code_generation**: Automated code generation
+- **template_library**: Pre-built templates and components
+- **a_b_testing**: Split testing and optimization
+- **seo_tools**: Search engine optimization
+- **content_management**: Content creation and management
+- **user_tracking**: User behavior analytics
+- **conversion_optimization**: Conversion rate optimization
+- **viral_mechanics**: Viral growth features
+- **referral_systems**: Customer referral programs
+
+### Agent Communication Flow
+
+```
+OrchestrationAgent (Central Hub)
+    ├── C-Suite Planning Session
+    │   ├── CEO-Agent (Strategic direction)
+    │   ├── CRO-Agent (Revenue strategy)  
+    │   ├── CTO-Agent (Technical decisions)
+    │   └── CFO-Agent (Financial approval)
+    │
+    ├── Workflow Execution Sequence
+    │   ├── ScanAgent → Market opportunities
+    │   ├── DeployAgent → MVP deployment
+    │   ├── CampaignAgent → Customer acquisition
+    │   ├── AnalyticsAgent → Performance tracking
+    │   ├── FinanceAgent → Budget enforcement
+    │   └── GrowthAgent → Scaling optimization
+    │
+    └── C-Suite Review Session
+        └── Strategic adjustments and next iteration planning
+```
+
 ## 🛠️ Configuration
 
 ### Environment Variables

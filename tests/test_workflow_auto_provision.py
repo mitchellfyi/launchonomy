@@ -5,7 +5,7 @@ import os
 import sys
 import logging
 
-# Add the current directory to the path so we can import orchestrator modules
+# Add the current directory to the path so we can import launchonomy modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Configure logging
@@ -17,9 +17,9 @@ async def test_workflow_auto_provision():
     logger.info("Starting workflow auto-provision test...")
     
     try:
-        from orchestrator.registry import Registry
-        from orchestrator.agents.scan_agent import ScanAgent
-        from orchestrator.agents.auto_provision_agent import AutoProvisionAgent
+        from launchonomy.registry.registry import Registry
+        from launchonomy.agents.workflow.scan import ScanAgent
+        from launchonomy.agents.workflow.auto_provision_agent import AutoProvisionAgent
         
         # Create a mock orchestrator for testing
         class MockOrchestrator:
@@ -85,9 +85,9 @@ async def test_direct_tool_auto_provision():
     logger.info("Testing direct tool auto-provisioning...")
     
     try:
-        from orchestrator.registry import Registry
-        from orchestrator.agents.base_workflow_agent import BaseWorkflowAgent
-        from orchestrator.agents.auto_provision_agent import AutoProvisionAgent
+        from launchonomy.registry.registry import Registry
+        from launchonomy.agents.base.workflow_agent import BaseWorkflowAgent
+        from launchonomy.agents.workflow.auto_provision_agent import AutoProvisionAgent
         
         # Create a mock orchestrator
         class MockOrchestrator:

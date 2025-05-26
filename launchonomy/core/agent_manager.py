@@ -20,11 +20,11 @@ class TemplateError(Exception):
 def load_template(name: str) -> str:
     """Load a template file with error handling."""
     try:
-        # Try relative path first (when running from orchestrator directory)
+        # Try relative path first (when running from launchonomy directory)
         path = os.path.join("templates", f"{name}.txt")
         if not os.path.exists(path):
-            # Fallback to absolute path (when running from parent directory)
-            path = os.path.join("orchestrator", "templates", f"{name}.txt")
+            # Fallback to launchonomy package path
+            path = os.path.join("launchonomy", "templates", f"{name}.txt")
         
         with open(path) as f:
             return f.read().strip()

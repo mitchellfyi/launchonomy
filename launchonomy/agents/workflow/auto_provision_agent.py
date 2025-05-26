@@ -159,7 +159,7 @@ class AutoProvisionAgent:
         try:
             # Import consensus system
             try:
-                from orchestrator.consensus import propose_and_vote
+                from launchonomy.utils.consensus import propose_and_vote
             except ImportError:
                 from consensus import propose_and_vote
             

@@ -14,8 +14,8 @@ from typing import Dict, Any
 # Add the project root to the path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from orchestrator.orchestrator_agent_refactored import create_orchestrator
-from orchestrator.mission_management import MissionLog, CycleLog
+from launchonomy.core.orchestrator import create_orchestrator
+from launchonomy.core.mission_manager import MissionLog, CycleLog
 
 # Configure logging
 logging.basicConfig(level=logging.WARNING, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')

@@ -16,8 +16,8 @@ from unittest.mock import Mock, AsyncMock
 # Add the project root to the path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from orchestrator.orchestrator_agent_refactored import OrchestrationAgent
-from orchestrator.registry import Registry
+from launchonomy.core.orchestrator import OrchestrationAgent
+from launchonomy.registry.registry import Registry
 
 # Configure logging
 logging.basicConfig(
