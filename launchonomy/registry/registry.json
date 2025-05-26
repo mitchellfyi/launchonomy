@@ -130,6 +130,25 @@
         },
         "type": "workflow_agent"
       }
+    },
+    "RetrievalAgent": {
+      "module": "launchonomy.agents.retrieval_agent",
+      "class": "RetrievalAgent",
+      "certified": true,
+      "spec": {
+        "description": "Retrieves relevant memories from the mission's vector store for context-aware decision making",
+        "workflow_step": "retrieve_memories",
+        "input_schema": {
+          "query": "str",
+          "k": "int",
+          "filters": "dict"
+        },
+        "output_schema": {
+          "memories": "list[str]",
+          "memory_count": "int"
+        },
+        "type": "retrieval_agent"
+      }
     }
   },
   "tools": {

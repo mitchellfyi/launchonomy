@@ -24,7 +24,8 @@ launchonomy/
 │   │   ├── orchestrator.py         # Main orchestrator agent
 │   │   ├── mission_manager.py      # Mission lifecycle management
 │   │   ├── agent_manager.py        # Agent lifecycle management
-│   │   └── communication.py       # Agent communication
+│   │   ├── communication.py       # Agent communication
+│   │   └── vector_memory.py        # ChromaDB vector memory system
 │   ├── agents/                     # All agent implementations
 │   │   ├── base/                   # Base classes
 │   │   │   └── workflow_agent.py   # Base workflow agent
@@ -41,6 +42,7 @@ launchonomy/
 │   │   │   ├── tool_dev.py         # Tool development automation
 │   │   │   ├── tool_qa.py          # Tool quality assurance
 │   │   │   └── tool_trainer.py     # Tool training and improvement
+│   │   ├── retrieval_agent.py      # RAG memory retrieval agent
 │   │   └── csuite/                 # C-Suite agents (future)
 │   ├── registry/                   # Agent registry system
 │   │   ├── registry.py             # Agent discovery and management
@@ -52,6 +54,7 @@ launchonomy/
 │   └── utils/                      # Utilities
 │       ├── logging.py              # Mission logging
 │       ├── consensus.py            # Consensus voting
+│       ├── memory_helper.py        # Memory logging utilities
 │       └── mission_log_navigator.py # Mission log analysis
 ├── tests/                          # Test suite
 ├── mission_logs/                   # Mission execution logs
@@ -64,6 +67,7 @@ launchonomy/
 
 1. Python 3.8+
 2. OpenAI API key
+3. ChromaDB (automatically installed with requirements)
 
 ### Installation
 
@@ -128,6 +132,46 @@ The system executes workflow agents in a logical business sequence:
 5. **FinanceAgent** - Manages financial operations and compliance
 6. **GrowthAgent** - Optimizes for growth and scaling
 
+### Mission-Scoped RAG Memory System
+
+Launchonomy features an advanced **mission-scoped RAG (Retrieval-Augmented Generation) memory system** powered by ChromaDB that enables agents to learn from past experiences and make context-aware decisions:
+
+#### 🧠 **Memory Architecture**
+- **Per-Mission Vector Store**: Each mission gets its own ChromaDB collection stored in `~/.chromadb_launchonomy/mission_<mission_id>`
+- **Persistent Memory**: Memories persist across mission cycles and system restarts
+- **Semantic Search**: Agents can query memories using natural language to find relevant past experiences
+- **Structured Metadata**: Memories are tagged with mission ID, agent name, workflow step, timestamp, and category
+
+#### 🔍 **Memory Types**
+- **Workflow Events**: Key outcomes from each workflow step (scan results, deployment details, campaign performance)
+- **Strategic Insights**: Learnings and observations from agents during execution
+- **Decision Records**: Important decisions made by agents with their reasoning
+- **Performance Metrics**: Quantitative results and KPIs from each cycle
+- **Success Patterns**: Successful strategies and approaches for future replication
+- **Error Learning**: Failed attempts and their causes for future avoidance
+
+#### 🤖 **RetrievalAgent**
+A specialized agent that provides memory access to all other agents:
+- **Semantic Retrieval**: Query memories using natural language descriptions
+- **Filtered Search**: Search by specific workflow steps, time periods, or categories
+- **Context Integration**: Automatically enriches agent prompts with relevant memories
+- **Memory Statistics**: Provides insights into memory store usage and growth
+
+#### 💡 **Context-Aware Decision Making**
+Every agent automatically receives relevant memories before making decisions:
+```
+Relevant Mission Memory:
+- [scan - 2024-01-15] Previous scan found AI newsletter services have 85% higher conversion rates
+- [deploy - 2024-01-14] MVP deployment using Next.js reduced time-to-market by 40%
+- [campaign - 2024-01-13] Email campaigns outperformed social media by 3x in customer acquisition
+```
+
+#### 🔧 **Memory Integration**
+- **Automatic Logging**: All workflow steps automatically log their results to memory
+- **Smart Retrieval**: Agents query memories based on their current task context
+- **Cross-Agent Learning**: Insights from one agent become available to all others
+- **Continuous Improvement**: Each mission builds upon learnings from previous missions
+
 ### Mission Logging
 
 Every mission is comprehensively logged with:
@@ -136,6 +180,7 @@ Every mission is comprehensively logged with:
 - Financial tracking and guardrails
 - Error handling and recovery
 - Token usage and costs
+- **Memory interactions and learnings**
 
 Mission logs are saved as JSON files with parameterized names:
 ```
@@ -263,6 +308,17 @@ This hybrid approach gives us the technical robustness of AutoGen with the busin
 - Experiment design and execution
 - Growth loop optimization
 - Scaling strategy development
+
+#### RetrievalAgent
+**Role**: Mission memory retrieval and context provider  
+**Description**: Provides semantic search and retrieval capabilities for the mission's vector memory store. Enables all agents to access relevant past experiences, learnings, and insights for context-aware decision making.
+
+**Key Capabilities**:
+- Semantic memory search using natural language queries
+- Filtered retrieval by workflow step, time period, or category
+- Memory statistics and analytics
+- Context enrichment for agent prompts
+- Cross-mission learning and pattern recognition
 
 ### Self-Provisioning Workflow Agents
 
@@ -394,6 +450,14 @@ OrchestrationAgent (Central Hub)
 - `OPENAI_API_KEY` - Your OpenAI API key (required)
 - `OPENAI_MODEL` - Model to use (default: gpt-4o-mini)
 
+### Memory System Configuration
+
+The ChromaDB vector memory system automatically creates mission-specific collections:
+- **Storage Location**: `~/.chromadb_launchonomy/`
+- **Collection Naming**: `mission_<mission_id>`
+- **Persistence**: Memories persist across system restarts
+- **Cleanup**: Old mission memories can be manually removed from the storage directory
+
 ### Command Line Options
 
 - `--debug` - Enable detailed debug logging
@@ -455,11 +519,28 @@ Run the test suite:
 python -m pytest tests/
 ```
 
+#### Memory System Testing
+
+Test the mission-scoped RAG memory integration:
+```bash
+python test_memory_integration.py
+```
+
+This test script validates:
+- ChromaDB vector memory creation and storage
+- Memory logging functionality across workflow steps
+- RetrievalAgent semantic search capabilities
+- Integration with the orchestrator system
+- Context-aware agent decision making
+
 ## 📈 Features
 
 ### ✅ Implemented
 - C-Suite strategic orchestration
 - Complete workflow agent sequence
+- **Mission-scoped RAG memory system with ChromaDB**
+- **Context-aware agent decision making**
+- **Persistent cross-mission learning**
 - Mission logging and resumability
 - Financial guardrails and compliance
 - Token usage tracking

@@ -55,6 +55,38 @@ class BaseWorkflowAgent(ABC):
         
         return context
     
+    async def _get_relevant_memories(self, current_intent: str, k: int = 3) -> str:
+        """
+        Retrieve relevant memories from the mission's vector store.
+        
+        Args:
+            current_intent: Description of what the agent is trying to do
+            k: Number of memories to retrieve
+            
+        Returns:
+            Formatted string with relevant memories or empty string if no memories
+        """
+        try:
+            # Get retrieval agent from orchestrator if available
+            if (self.orchestrator and 
+                hasattr(self.orchestrator, 'retrieval_agent') and 
+                self.orchestrator.retrieval_agent):
+                
+                retrieval_agent = self.orchestrator.retrieval_agent
+                memories = await retrieval_agent.retrieve(current_intent, k=k)
+                
+                if memories:
+                    memory_text = "\n".join([f"- {memory}" for memory in memories])
+                    return f"\nRelevant Mission Memory:\n{memory_text}\n"
+                else:
+                    return ""
+            else:
+                return ""
+                
+        except Exception as e:
+            self._log(f"Error retrieving memories: {str(e)}", "warning")
+            return ""
+    
     async def _get_tool_from_registry(self, tool_name: str, context: Optional[Dict] = None) -> Optional[Dict[str, Any]]:
         """Get a tool specification from the registry. If not found, attempts auto-provisioning."""
         if not self.registry:

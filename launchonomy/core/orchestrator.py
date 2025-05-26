@@ -14,9 +14,12 @@ from autogen_ext.models.openai import OpenAIChatCompletionClient
 # Import our modular components
 from ..registry import Registry
 from ..agents.workflow.auto_provision_agent import AutoProvisionAgent
+from ..agents.retrieval_agent import RetrievalAgent
 from .mission_manager import MissionManager, MissionLog, CycleLog
 from .communication import AgentCommunicator, ReviewManager, AgentCommunicationError
 from .agent_manager import AgentManager, TemplateError, load_template
+from .vector_memory import create_mission_memory, ChromaDBVectorMemory
+from ..utils.memory_helper import MemoryHelper
 
 # Configure logging
 logging.basicConfig(level=logging.WARNING)
@@ -67,6 +70,12 @@ class OrchestrationAgent(RoutedAgent):
         self.communicator = AgentCommunicator()
         self.review_manager = ReviewManager(self.communicator)
         self.agent_manager = AgentManager(self.registry, client, self.log_callback)
+        
+        # Initialize memory system (will be set up per mission)
+        self.mission_memory: Optional[ChromaDBVectorMemory] = None
+        self.memory_helper: Optional[MemoryHelper] = None
+        self.retrieval_agent: Optional[RetrievalAgent] = None
+        self.current_mission_id: Optional[str] = None
         
         # Load and instantiate all registered agents at startup
         self.agent_manager.load_registered_agents()
@@ -123,10 +132,85 @@ class OrchestrationAgent(RoutedAgent):
 
     # Delegate mission management methods
     def create_or_load_mission(self, mission_name: str, overall_mission: str, resume_existing: bool = True) -> MissionLog:
-        return self.mission_manager.create_or_load_mission(mission_name, overall_mission, resume_existing)
+        mission_log = self.mission_manager.create_or_load_mission(mission_name, overall_mission, resume_existing)
+        
+        # Initialize memory system for this mission
+        self._initialize_mission_memory(mission_log.mission_id)
+        
+        return mission_log
+    
+    def _initialize_mission_memory(self, mission_id: str):
+        """Initialize the memory system for a specific mission."""
+        try:
+            # Generate or use existing mission ID
+            self.current_mission_id = mission_id
+            
+            # Create mission-specific memory store
+            self.mission_memory = create_mission_memory(mission_id)
+            
+            # Initialize memory helper
+            self.memory_helper = MemoryHelper(self.mission_memory, mission_id)
+            
+            # Initialize retrieval agent
+            self.retrieval_agent = RetrievalAgent(self.mission_memory)
+            
+            # Add retrieval agent to the agent manager's agents
+            self.agent_manager.agents["RetrievalAgent"] = self.retrieval_agent
+            
+            self._log(f"Initialized memory system for mission: {mission_id}", "info")
+            
+        except Exception as e:
+            self._log(f"Error initializing memory system: {str(e)}", "error")
+            # Continue without memory system if initialization fails
+            self.mission_memory = None
+            self.memory_helper = None
+            self.retrieval_agent = None
 
     def get_mission_context_for_agents(self) -> dict:
         return self.mission_manager.get_mission_context_for_agents()
+    
+    async def _log_workflow_step_to_memory(self, step_name: str, result: Any, status: str):
+        """Log a workflow step result to the mission memory."""
+        if not self.memory_helper:
+            return  # Memory system not initialized
+        
+        try:
+            # Create summary based on result type and status
+            if status == "success":
+                if hasattr(result, 'data') and isinstance(result.data, dict):
+                    # Handle WorkflowOutput objects
+                    summary = f"{step_name} completed successfully"
+                    details = {
+                        "status": result.status if hasattr(result, 'status') else "success",
+                        "cost": result.cost if hasattr(result, 'cost') else 0.0,
+                        "confidence": result.confidence if hasattr(result, 'confidence') else 1.0
+                    }
+                    
+                    # Add key data points
+                    if result.data:
+                        for key, value in result.data.items():
+                            if key in ["revenue", "opportunities", "deployment_summary", "performance", "metrics"]:
+                                details[key] = str(value)[:200]  # Truncate long values
+                                
+                elif isinstance(result, dict):
+                    summary = f"{step_name} completed successfully"
+                    details = {k: str(v)[:200] for k, v in result.items() if k in ["status", "revenue", "cost", "performance"]}
+                else:
+                    summary = f"{step_name} completed successfully"
+                    details = {"result": str(result)[:200]}
+                
+                # Log as workflow event
+                self.memory_helper.log_workflow_event(step_name.lower(), summary, details)
+                
+            elif status == "failed":
+                summary = f"{step_name} failed with error"
+                details = result if isinstance(result, dict) else {"error": str(result)}
+                
+                # Log as error
+                self.memory_helper.log_error_or_failure(step_name.lower(), summary, details)
+                
+        except Exception as e:
+            self._log(f"Error logging to memory: {str(e)}", "warning")
 
     # Delegate agent management methods
     async def bootstrap_c_suite(self, mission_context: str = ""):
@@ -304,7 +388,7 @@ class OrchestrationAgent(RoutedAgent):
         
         try:
             for iteration in range(max_iterations):
-                self._log(f"Starting iteration {iteration + 1}/{max_iterations}", "info")
+                # self._log(f"Starting iteration {iteration + 1}/{max_iterations}", "info")
                 loop_results["total_iterations"] = iteration + 1
                 
                 cycle_log = {
@@ -337,7 +421,7 @@ class OrchestrationAgent(RoutedAgent):
                 self._log("Phase 2: Executing workflow agent sequence...", "info")
                 for agent_name in workflow_sequence:
                     try:
-                        self._log(f"Executing {agent_name}...", "info")
+                        # self._log(f"Executing {agent_name}...", "info")
                         
                         # Get agent from registry
                         agent = self.registry.get_agent(agent_name, mission_context)
@@ -375,6 +459,9 @@ class OrchestrationAgent(RoutedAgent):
                             "timestamp": datetime.now().isoformat()
                         }
                         
+                        # Log to memory system
+                        await self._log_workflow_step_to_memory(agent_name, result, "success")
+                        
                         # Extract revenue if available
                         if agent_name == "AnalyticsAgent":
                             # Handle WorkflowOutput object
@@ -389,7 +476,7 @@ class OrchestrationAgent(RoutedAgent):
                                     cycle_log["revenue_generated"] += revenue
                                     loop_results["total_revenue_generated"] += revenue
                         
-                        self._log(f"{agent_name} completed successfully", "info")
+                        # self._log(f"{agent_name} completed successfully", "info")
                         
                     except Exception as e:
                         error_msg = f"Error executing {agent_name}: {str(e)}"
@@ -400,6 +487,10 @@ class OrchestrationAgent(RoutedAgent):
                             "error": str(e),
                             "timestamp": datetime.now().isoformat()
                         }
+                        
+                        # Log error to memory system
+                        await self._log_workflow_step_to_memory(agent_name, {"error": str(e)}, "failed")
+                        
                         cycle_successful = False
                 
                 # Phase 3: C-Suite Review and Strategic Adjustment
@@ -417,7 +508,7 @@ class OrchestrationAgent(RoutedAgent):
                     
                     # Apply C-Suite strategic adjustments
                     if csuite_review.get("strategic_adjustments"):
-                        self._log("Applying C-Suite strategic adjustments...", "info")
+                        # self._log("Applying C-Suite strategic adjustments...", "info")
                         # Update mission context based on C-Suite feedback
                         mission_context.update(csuite_review.get("context_updates", {}))
                 
@@ -944,7 +1035,7 @@ class OrchestrationAgent(RoutedAgent):
             self._log(f"📈 Cycle Performance Summary:", "info")
             self._log(f"   • Success: {'✅' if successful else '❌'}", "info")
             # self._log(f"   • Revenue: ${revenue:.2f}", "info")
-            self._log(f"   • Agents executed: {len(agents_executed)}", "info")
+            # self._log(f"   • Agents executed: {len(agents_executed)}", "info")
             if errors:
                 self._log(f"   • Errors encountered: {len(errors)}", "warning")
             
