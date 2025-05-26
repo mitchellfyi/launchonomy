@@ -2,31 +2,16 @@
 autogen-core>=0.4.0
 autogen-ext[openai]>=0.4.0
 
-# OpenAI for AI-assisted tool and agent creation
-openai>=1.0.0
-
-# Enhanced API and web framework
-fastapi>=0.104.0
-uvicorn[standard]>=0.24.0
-
-# Enhanced CLI and UI
+# Enhanced CLI and UI (actually used in cli.py)
 click>=8.1.0
 rich>=13.0.0
 
-# Configuration and environment
+# Configuration and environment (used in cli.py)
 python-dotenv>=1.0.0
 pydantic>=2.0.0
 
-# Enhanced HTTP client with connection pooling
+# HTTP client for workflow agents (used in workflow_agent.py)
 aiohttp>=3.9.0
-httpx>=0.25.0
 
-# Data handling and serialization
-orjson>=3.9.0  # Faster JSON processing
-
-# Optional: Enhanced monitoring and observability
-structlog>=23.0.0  # Structured logging
-prometheus-client>=0.19.0  # Metrics collection
-
-# Vector database for mission-scoped RAG memory
+# Vector database for mission-scoped RAG memory (used in orchestrator)
 chromadb>=0.4.0
