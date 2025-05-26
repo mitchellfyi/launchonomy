@@ -150,26 +150,61 @@ class Registry:
         spec = proposal.get("spec")
         endpoint = proposal.get("endpoint")  # For agents
 
-        if not proposal_type or not name or not spec:
-            logger.warning(f"Invalid proposal: {proposal}. Missing type, name, or spec.")
-            return
-
         if proposal_type == "add_agent":
+            if not name or not spec:
+                logger.warning(f"Invalid agent proposal: {proposal}. Missing name or spec.")
+                return
             if not endpoint:
                 endpoint = f"auto_provisioned_agents.{name.lower()}.handle_request" 
             self.add_agent(name, endpoint=endpoint, certified=False, spec=spec)
+            # Set initial status as pending for DevAgent to pick up
+            if name in self.agents:
+                self.agents[name]["status"] = "pending"
+                self.save()
+                
         elif proposal_type == "add_tool":
+            if not name or not spec:
+                logger.warning(f"Invalid tool proposal: {proposal}. Missing name or spec.")
+                return
             self.add_tool(name, spec)
+            # Set initial status as pending for DevAgent to pick up
+            if name in self.tools:
+                self.tools[name]["status"] = "pending"
+                self.save()
             # Emit stub file for the new tool
             self._emit_tool_stub(name, spec)
+            
+        elif proposal_type == "certify_item":
+            # Handle certification proposals from QAAgent
+            item_type = proposal.get("item_type")
+            item_name = proposal.get("name")
+            test_results = proposal.get("test_results")
+            certification_level = proposal.get("certification_level", "basic")
+            
+            if item_type == "agent" and item_name in self.agents:
+                self.agents[item_name]["status"] = "certified"
+                self.agents[item_name]["test_results"] = test_results
+                self.agents[item_name]["certification_level"] = certification_level
+                self.save()
+                logger.info(f"Certified agent '{item_name}' with level '{certification_level}'")
+                
+            elif item_type == "tool" and item_name in self.tools:
+                self.tools[item_name]["status"] = "certified"
+                self.tools[item_name]["test_results"] = test_results
+                self.tools[item_name]["certification_level"] = certification_level
+                self.save()
+                logger.info(f"Certified tool '{item_name}' with level '{certification_level}'")
+            else:
+                logger.warning(f"Cannot certify {item_type} '{item_name}' - not found in registry")
+                
         else:
             logger.warning(f"Unknown proposal type: {proposal_type}")
 
     def _emit_tool_stub(self, tool_name: str, tool_spec: Dict[str, Any]):
-        """Emits a stub JSON file for a tool in tools/stubs/ directory."""
+        """Emits a stub JSON file for a tool in launchonomy/tools/stubs/ directory."""
         try:
             # Create the stubs directory if it doesn't exist
-            stubs_dir = "tools/stubs"
+            stubs_dir = "launchonomy/tools/stubs"
             os.makedirs(stubs_dir, exist_ok=True)
             
             # Handle name collisions by checking if file exists and appending version suffix
