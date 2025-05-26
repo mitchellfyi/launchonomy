@@ -14,8 +14,8 @@ class AnalyticsAgent(BaseWorkflowAgent):
     REQUIRED_TOOLS = ["analytics_platform"]
     OPTIONAL_TOOLS = ["google_analytics", "stripe_analytics", "email_analytics", "social_media_analytics", "database_analytics"]
     
-    def __init__(self, registry=None, orchestrator=None):
-        super().__init__("AnalyticsAgent", registry, orchestrator)
+    def __init__(self, registry=None, orchestrator=None, mission_context=None):
+        super().__init__("AnalyticsAgent", registry, orchestrator, mission_context)
         self.system_prompt = self._build_system_prompt()
         self.metrics_history = []
         self.kpi_thresholds = self._initialize_kpi_thresholds()

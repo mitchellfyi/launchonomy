@@ -96,6 +96,27 @@ python main.py
 python -m launchonomy.cli
 ```
 
+### Workspace Management
+
+Manage mission workspaces with the dedicated CLI:
+
+```bash
+# List all mission workspaces
+python -m launchonomy.cli_workspace list
+
+# Create a new workspace
+python -m launchonomy.cli_workspace create "Mission Name" --description "Description" --tags "tag1,tag2"
+
+# Inspect a workspace in detail
+python -m launchonomy.cli_workspace inspect MISSION_ID --show-assets
+
+# Show workspace system status
+python -m launchonomy.cli_workspace status
+
+# Archive a completed workspace
+python -m launchonomy.cli_workspace archive MISSION_ID
+```
+
 ## 🎯 How It Works
 
 <p>
@@ -156,9 +177,34 @@ Relevant Mission Memory:
 - [campaign - 2024-01-13] Email campaigns outperformed social media by 3x in customer acquisition
 ```
 
+### Mission Workspace System
+
+Every mission gets its own organized workspace with:
+- **Automatic workspace creation** with timestamp-first naming for chronological ordering
+- **Mission-specific agents and tools** stored in dedicated directories
+- **Comprehensive asset tracking** via manifest system
+- **State management** with checkpoints and resumable operations
+- **Integrated logging** with agent and cycle logs
+- **ChromaDB memory storage** within the workspace
+
+Workspace structure:
+```
+.launchonomy/
+└── {YYYYMMDD_HHMMSS}_{mission_type}_{sanitized_name}/
+    ├── workspace_config.json      # Mission configuration
+    ├── asset_manifest.json        # Asset tracking
+    ├── agents/                    # Mission-specific agents
+    ├── tools/                     # Mission-specific tools
+    ├── assets/                    # Generated files (code, data, configs, media)
+    ├── logs/                      # Mission and agent logs
+    ├── state/                     # Mission state and checkpoints
+    ├── memory/                    # ChromaDB vector storage
+    └── docs/                      # Documentation and templates
+```
+
 ### Mission Logging
 
-Every mission is comprehensively logged with:
+Mission data is comprehensively tracked with:
 - Strategic decisions from C-Suite agents
 - Workflow agent execution results
 - Financial tracking and guardrails
@@ -166,9 +212,12 @@ Every mission is comprehensively logged with:
 - Token usage and costs
 - Memory interactions and learnings
 
-Mission logs are saved as JSON files with parameterized names:
+All mission data is stored in the Mission Workspace System:
 ```
-mission_logs/mission_20250526_005050_test_reorganized_codebase.json
+.launchonomy/20250526_005050_mission_test_reorganized_codebase/
+├── state/mission_log.json         # Primary mission log
+├── logs/cycles/                   # Individual cycle logs
+└── memory/chromadb/               # Vector memory storage
 ```
 
 ## 🏗️ Architecture
@@ -179,9 +228,11 @@ Launchonomy uses a modular architecture with clear separation of concerns:
 launchonomy/
 ├── launchonomy/                    # Main package
 │   ├── cli.py                      # Command line interface
+│   ├── cli_workspace.py            # Workspace management CLI
 │   ├── core/                       # Core orchestration logic
 │   │   ├── orchestrator.py         # Main orchestrator agent
 │   │   ├── mission_manager.py      # Mission lifecycle management
+│   │   ├── workspace_manager.py    # Mission workspace management
 │   │   ├── agent_manager.py        # Agent lifecycle management
 │   │   ├── communication.py       # Agent communication
 │   │   └── vector_memory.py        # ChromaDB vector memory system
@@ -210,7 +261,7 @@ launchonomy/
 │       ├── consensus.py            # Consensus voting
 │       └── mission_log_navigator.py # Mission log analysis
 ├── tests/                          # Test suite
-├── mission_logs/                   # Mission execution logs
+├── .launchonomy/                   # Mission workspaces
 ├── docs/                           # Documentation files
 │   ├── AUTOGEN_ARCHITECTURE.md     # AutoGen integration guide
 │   ├── AUTOGEN_QUICK_REFERENCE.md  # AutoGen quick reference
@@ -290,9 +341,12 @@ python -m pytest tests/
 ### ✅ Implemented
 - C-Suite strategic orchestration
 - Complete workflow agent sequence
+- **Mission Workspace System with organized file storage**
 - **Mission-scoped RAG memory system with ChromaDB**
 - **Context-aware agent decision making**
 - **Persistent cross-mission learning**
+- **Comprehensive asset tracking and manifest system**
+- **CLI tools for workspace management**
 - Mission logging and resumability
 - Financial guardrails and compliance
 - Real-world cost tracking and calculation
@@ -320,6 +374,7 @@ python -m pytest tests/
 - **[📖 AutoGen Architecture Guide](docs/AUTOGEN_ARCHITECTURE.md)** - Comprehensive guide explaining our strategic hybrid approach with Microsoft AutoGen v0.4
 - **[⚡ AutoGen Quick Reference](docs/AUTOGEN_QUICK_REFERENCE.md)** - Developer quick reference for working with our AutoGen integration
 - **[🎯 Mission Lifecycle Guide](docs/MISSION_LIFECYCLE.md)** - Complete guide to how missions work from start to finish
+- **[📁 Mission Workspace System](docs/WORKSPACE_SYSTEM.md)** - Complete guide to the mission workspace system, asset management, and CLI tools
 - **[🛠️ Development Guide](docs/DEVELOPMENT_GUIDE.md)** - Comprehensive guide for developers contributing to Launchonomy
 - **[🚨 Troubleshooting Guide](docs/TROUBLESHOOTING.md)** - Solutions to common issues and debugging procedures
 
@@ -345,7 +400,7 @@ This hybrid approach gives us the technical robustness of AutoGen with the busin
 
 ## 📄 License
 
-[License information]
+[License information](LICENSE)
 
 ## 🆘 Support
 

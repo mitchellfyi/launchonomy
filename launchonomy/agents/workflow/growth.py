@@ -32,8 +32,8 @@ class GrowthAgent(BaseWorkflowAgent):
         "product_analytics", "growth_experiments"
     ]
     
-    def __init__(self, registry=None, orchestrator=None):
-        super().__init__("GrowthAgent", registry, orchestrator)
+    def __init__(self, registry=None, orchestrator=None, mission_context=None):
+        super().__init__("GrowthAgent", registry, orchestrator, mission_context)
         self.system_prompt = self._build_system_prompt()
         
         # Growth parameters

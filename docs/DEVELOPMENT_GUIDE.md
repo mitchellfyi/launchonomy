@@ -10,10 +10,12 @@ This guide provides comprehensive information for developers contributing to Lau
 2. [Architecture Patterns](#architecture-patterns)
 3. [Agent Development](#agent-development)
 4. [Tool Development](#tool-development)
-5. [Testing Guidelines](#testing-guidelines)
-6. [Code Standards](#code-standards)
-7. [Debugging & Troubleshooting](#debugging--troubleshooting)
-8. [Performance Optimization](#performance-optimization)
+5. [Mission Context System](#mission-context-system)
+6. [Workspace System Development](#workspace-system-development)
+7. [Testing Guidelines](#testing-guidelines)
+8. [Code Standards](#code-standards)
+9. [Debugging & Troubleshooting](#debugging--troubleshooting)
+10. [Performance Optimization](#performance-optimization)
 
 ---
 
@@ -178,7 +180,7 @@ class AgentCommunicator:
 #### **1. Agent Class Structure**
 ```python
 # launchonomy/agents/workflow/my_new_agent.py
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from launchonomy.agents.base.workflow_agent import BaseWorkflowAgent
 
 class MyNewAgent(BaseWorkflowAgent):
@@ -191,9 +193,8 @@ class MyNewAgent(BaseWorkflowAgent):
     - [Tertiary responsibility]
     """
     
-    def __init__(self):
-        super().__init__()
-        self.agent_name = "MyNewAgent"
+    def __init__(self, registry=None, orchestrator=None, mission_context: Optional[Dict[str, Any]] = None):
+        super().__init__("MyNewAgent", registry, orchestrator, mission_context)
         self.agent_description = "Handles [specific function]"
     
     async def execute(self, task_description: str, 
@@ -215,14 +216,22 @@ class MyNewAgent(BaseWorkflowAgent):
             # 2. Execute core logic
             result = await self._execute_core_logic(task_description, context)
             
-            # 3. Validate outputs
+            # 3. Save important outputs to workspace
+            if result.get("generated_code"):
+                self._save_asset_to_workspace(
+                    f"{self.name}_generated_code.py", 
+                    result["generated_code"], 
+                    "code"
+                )
+            
+            # 4. Validate outputs
             self._validate_outputs(result)
             
-            # 4. Return standardized response
+            # 5. Return standardized response
             return {
                 "status": "success",
                 "data": result,
-                "agent": self.agent_name,
+                "agent": self.name,
                 "timestamp": self._get_timestamp()
             }
             
@@ -531,6 +540,319 @@ def get_tool(tool_name: str) -> BaseTool:
 
 ---
 
+## 🎯 **Mission Context System**
+
+Every workflow agent in Launchonomy receives mission context that provides essential information about the current mission, workspace, and execution environment.
+
+### **Mission Context Structure**
+```python
+mission_context = {
+    "mission_id": "20250526_185848_mission_demo_mission_a_demo_mission_a",
+    "overall_mission": "Create a simple hello world script",
+    "workspace_path": "/path/to/.launchonomy/mission_workspace",
+    "cycles_completed": 3,
+    "total_cost_so_far": 125.50,
+    "key_learnings": ["API integration successful", "Customer feedback positive"],
+    "budget_constraints": {"max_cost_ratio": 0.20},
+    "mission_status": "active"
+}
+```
+
+### **Accessing Mission Context**
+```python
+class MyAgent(BaseWorkflowAgent):
+    def __init__(self, registry=None, orchestrator=None, mission_context=None):
+        super().__init__("MyAgent", registry, orchestrator, mission_context)
+    
+    async def execute(self, input_data: Dict[str, Any]) -> WorkflowOutput:
+        # Access mission context directly
+        mission_id = self.mission_context.get("mission_id")
+        workspace_path = self.mission_context.get("workspace_path")
+        
+        # Mission context is automatically included in _get_launchonomy_context()
+        context = self._get_launchonomy_context()
+        # context now includes all mission_context fields
+        
+        # Save assets to the mission workspace
+        self._save_asset_to_workspace("analysis.json", analysis_data, "data")
+```
+
+### **Mission Context Benefits**
+- **Workspace Integration**: Automatic asset saving to mission-specific directories
+- **State Persistence**: Access to previous cycles and learnings
+- **Budget Tracking**: Real-time cost and constraint information
+- **Mission Continuity**: Seamless resumption of paused missions
+
+---
+
+## 📁 **Workspace System Development**
+
+### **Workspace Manager Architecture**
+
+The workspace system provides organized, filesystem-based storage for mission-specific assets:
+
+```python
+# Core workspace components
+WorkspaceManager         # Central workspace management
+├── WorkspaceConfig     # Workspace configuration
+├── AssetManifest       # Asset tracking and metadata
+└── Integration Points  # MissionManager, CLI, etc.
+```
+
+### **Adding Workspace Features**
+
+#### **1. Extending WorkspaceManager**
+```python
+# launchonomy/core/workspace_manager.py
+class WorkspaceManager:
+    def add_custom_asset_type(self, asset_type: str, 
+                             validation_func: callable = None):
+        """Add support for new asset types"""
+        self.supported_asset_types[asset_type] = {
+            "validator": validation_func,
+            "storage_path": f"assets/{asset_type}",
+            "metadata_fields": ["created_at", "size_bytes", "checksum"]
+        }
+    
+    async def backup_workspace(self, mission_id: str, 
+                              backup_location: str) -> bool:
+        """Create workspace backup"""
+        workspace = self.get_workspace(mission_id)
+        if not workspace:
+            return False
+        
+        # Implementation for backup logic
+        return await self._create_backup(workspace, backup_location)
+```
+
+#### **2. Custom Asset Handlers**
+```python
+# launchonomy/core/asset_handlers.py
+from abc import ABC, abstractmethod
+from typing import Dict, Any, Optional
+
+class BaseAssetHandler(ABC):
+    """Base class for asset type handlers"""
+    
+    @abstractmethod
+    async def save_asset(self, workspace_path: str, asset_name: str, 
+                        asset_data: Any) -> str:
+        """Save asset to workspace"""
+        pass
+    
+    @abstractmethod
+    async def load_asset(self, workspace_path: str, 
+                        asset_path: str) -> Any:
+        """Load asset from workspace"""
+        pass
+    
+    @abstractmethod
+    def validate_asset(self, asset_data: Any) -> bool:
+        """Validate asset data"""
+        pass
+
+class CodeAssetHandler(BaseAssetHandler):
+    """Handler for code assets"""
+    
+    async def save_asset(self, workspace_path: str, asset_name: str, 
+                        asset_data: str) -> str:
+        """Save code file with syntax validation"""
+        if not self.validate_asset(asset_data):
+            raise ValueError("Invalid code syntax")
+        
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        file_path = Path(workspace_path) / "assets" / "code" / f"{timestamp}_{asset_name}"
+        
+        with open(file_path, 'w') as f:
+            f.write(asset_data)
+        
+        return str(file_path.relative_to(workspace_path))
+    
+    def validate_asset(self, asset_data: str) -> bool:
+        """Validate Python code syntax"""
+        try:
+            compile(asset_data, '<string>', 'exec')
+            return True
+        except SyntaxError:
+            return False
+```
+
+#### **3. CLI Extensions**
+```python
+# launchonomy/cli_workspace.py - Adding new commands
+@workspace.command()
+@click.argument('mission_id')
+@click.option('--backup-location', help='Backup destination path')
+@click.pass_context
+def backup(ctx, mission_id: str, backup_location: Optional[str]):
+    """Create a backup of mission workspace"""
+    wm: WorkspaceManager = ctx.obj['workspace_manager']
+    
+    try:
+        success = await wm.backup_workspace(mission_id, backup_location)
+        if success:
+            console.print(f"[green]✅ Workspace backed up successfully![/green]")
+        else:
+            console.print(f"[red]❌ Backup failed[/red]")
+    except Exception as e:
+        console.print(f"[red]❌ Error creating backup: {e}[/red]")
+
+@workspace.command()
+@click.argument('mission_id')
+@click.option('--asset-type', help='Filter by asset type')
+@click.pass_context
+def analyze(ctx, mission_id: str, asset_type: Optional[str]):
+    """Analyze workspace assets and usage patterns"""
+    wm: WorkspaceManager = ctx.obj['workspace_manager']
+    
+    analysis = wm.analyze_workspace_usage(mission_id, asset_type)
+    
+    # Display analysis results with rich formatting
+    table = Table(title=f"Workspace Analysis: {mission_id}")
+    table.add_column("Metric", style="cyan")
+    table.add_column("Value", style="green")
+    
+    for metric, value in analysis.items():
+        table.add_row(metric, str(value))
+    
+    console.print(table)
+```
+
+### **Integration Patterns**
+
+#### **1. Agent Integration**
+```python
+# Agents automatically save outputs to workspace
+class BaseWorkflowAgent:
+    def __init__(self, workspace_manager: WorkspaceManager = None):
+        self.workspace_manager = workspace_manager
+    
+    async def save_output_to_workspace(self, mission_id: str, 
+                                      output_data: Dict[str, Any]):
+        """Save agent output to mission workspace"""
+        if not self.workspace_manager:
+            return
+        
+        # Save different output types appropriately
+        for key, value in output_data.items():
+            if key.endswith('_code'):
+                await self.workspace_manager.save_asset(
+                    mission_id, f"{self.agent_name}_{key}", value, 
+                    asset_type="code", category="code"
+                )
+            elif key.endswith('_config'):
+                await self.workspace_manager.save_asset(
+                    mission_id, f"{self.agent_name}_{key}", value,
+                    asset_type="config", category="configs"
+                )
+```
+
+#### **2. Mission Manager Integration**
+```python
+# Automatic workspace creation during mission initialization
+class MissionManager:
+    def __init__(self, workspace_manager: WorkspaceManager):
+        self.workspace_manager = workspace_manager
+    
+    def create_or_load_mission(self, mission_name: str, 
+                              overall_mission: str) -> MissionLog:
+        """Create mission with automatic workspace setup"""
+        mission_log = self._create_mission_log(mission_name, overall_mission)
+        
+        # Create workspace automatically
+        workspace_config = self.workspace_manager.create_workspace(
+            mission_id=mission_log.mission_id,
+            mission_name=mission_name,
+            overall_mission=overall_mission,
+            tags=["active", "auto-created"]
+        )
+        
+        # Link workspace to mission
+        mission_log.workspace_path = workspace_config.workspace_path
+        
+        return mission_log
+```
+
+### **Testing Workspace Features**
+
+#### **Unit Tests**
+```python
+# tests/unit/core/test_workspace_manager.py
+import pytest
+import tempfile
+from pathlib import Path
+from launchonomy.core.workspace_manager import WorkspaceManager
+
+class TestWorkspaceManager:
+    
+    @pytest.fixture
+    def temp_workspace_dir(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            yield temp_dir
+    
+    @pytest.fixture
+    def workspace_manager(self, temp_workspace_dir):
+        return WorkspaceManager(temp_workspace_dir)
+    
+    def test_create_workspace(self, workspace_manager):
+        """Test workspace creation"""
+        config = workspace_manager.create_workspace(
+            mission_id="test_mission_123",
+            mission_name="Test Mission",
+            overall_mission="Test workspace creation",
+            tags=["test"]
+        )
+        
+        assert config.mission_id == "test_mission_123"
+        assert Path(config.workspace_path).exists()
+        
+        # Verify directory structure
+        workspace_path = Path(config.workspace_path)
+        assert (workspace_path / "agents").exists()
+        assert (workspace_path / "tools").exists()
+        assert (workspace_path / "assets").exists()
+        assert (workspace_path / "workspace_config.json").exists()
+```
+
+#### **Integration Tests**
+```python
+# tests/integration/test_workspace_integration.py
+import pytest
+from launchonomy.core.workspace_manager import WorkspaceManager
+from launchonomy.core.mission_manager import MissionManager
+
+@pytest.mark.asyncio
+async def test_mission_workspace_integration():
+    """Test mission and workspace integration"""
+    workspace_manager = WorkspaceManager(".test_workspaces")
+    mission_manager = MissionManager(workspace_manager)
+    
+    # Create mission (should auto-create workspace)
+    mission_log = mission_manager.create_or_load_mission(
+        "Integration Test Mission",
+        "Test mission-workspace integration"
+    )
+    
+    assert mission_log.workspace_path is not None
+    assert Path(mission_log.workspace_path).exists()
+    
+    # Test asset saving
+    success = workspace_manager.save_asset(
+        mission_id=mission_log.mission_id,
+        asset_name="test_config.json",
+        asset_data={"test": "data"},
+        category="configs"
+    )
+    
+    assert success is not None
+    
+    # Verify asset in manifest
+    manifest = workspace_manager._load_asset_manifest(mission_log.mission_id)
+    assert "test_config.json" in manifest.generated_files
+```
+
+---
+
 ## 🧪 **Testing Guidelines**
 
 ### **Test Structure**
@@ -656,7 +978,7 @@ class TestCompleteMission:
         """Test complete mission from start to finish"""
         with tempfile.TemporaryDirectory() as temp_dir:
             # Set up test environment
-            os.environ["MISSION_LOGS_DIR"] = temp_dir
+            os.environ["LAUNCHONOMY_WORKSPACE_DIR"] = temp_dir
             os.environ["OPENAI_API_KEY"] = "test-key"
             
             # Run mission

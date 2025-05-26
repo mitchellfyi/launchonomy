@@ -18,24 +18,26 @@ class AgentTrainer:
     5. Coordinate with AgentDev for implementing improvements
     """
     
-    def __init__(self, registry, coa):
+    def __init__(self, registry, orchestrator, mission_context: Optional[Dict[str, Any]] = None):
         """
         Initialize AgentTrainer.
         
         Args:
             registry: Registry instance for managing agents/tools
-            coa: Consensus Orchestration Authority (OrchestrationAgent)
+            orchestrator: OrchestrationAgent instance
+            mission_context: Mission context including workspace information
         """
         self.registry = registry
-        self.coa = coa
+        self.orchestrator = orchestrator
+        self.mission_context = mission_context or {}
         self.name = "AgentTrainer"
         
     def _log(self, message: str, level: str = "info"):
         """Helper for logging."""
         log_func = getattr(logger, level, logger.info)
         log_func(f"{self.name}: {message}")
-        if hasattr(self.coa, '_log_to_monitor') and callable(self.coa._log_to_monitor):
-            self.coa._log_to_monitor(self.name, message, level)
+        if hasattr(self.orchestrator, '_log_to_monitor') and callable(self.orchestrator._log_to_monitor):
+            self.orchestrator._log_to_monitor(self.name, message, level)
     
     def execute(self) -> Dict[str, Any]:
         """
@@ -408,9 +410,9 @@ class AgentTrainer:
     def _trigger_agent_dev(self):
         """Trigger AgentDev to rebuild improved agents."""
         try:
-            if hasattr(self.coa, 'enqueue_task'):
-                self.coa.enqueue_task("AgentDev")
+            if hasattr(self.orchestrator, 'enqueue_task'):
+                self.orchestrator.enqueue_task("AgentDev")
             else:
-                self._log("COA does not support task queuing, AgentDev will run on next cycle", "warning")
+                self._log("Orchestrator does not support task queuing, AgentDev will run on next cycle", "warning")
         except Exception as e:
             self._log(f"Error triggering AgentDev: {str(e)}", "error") 

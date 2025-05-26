@@ -59,18 +59,17 @@ echo "OPENAI_API_KEY=your-api-key-here" > .env
 python -c "import os; print('API Key:', os.getenv('OPENAI_API_KEY', 'NOT FOUND'))"
 ```
 
-### **Issue: Permission Denied on Mission Logs**
+### **Issue: Permission Denied on Mission Workspaces**
 ```bash
 # Error
-PermissionError: [Errno 13] Permission denied: 'mission_logs/'
+PermissionError: [Errno 13] Permission denied: '.launchonomy/'
 
 # Solution
 # Create directory with proper permissions
-mkdir -p mission_logs
-chmod 755 mission_logs
+mkdir -p .launchonomy
+chmod 755 .launchonomy
 
-# Or run with sudo (not recommended)
-sudo python main.py
+# Note: Running with sudo is not recommended for security reasons
 ```
 
 ---
@@ -199,8 +198,8 @@ orchestrator.cleanup_interval = 50  # Every 50 operations
 - High token usage without results
 
 # Diagnosis
-# Check mission log for patterns
-python launchonomy/utils/mission_log_navigator.py
+# Check mission workspace for patterns
+python -m launchonomy.cli_workspace list
 
 # Look for:
 # - Repeated identical cycles
@@ -387,7 +386,7 @@ def check_disk_space():
 # Use async file writes
 
 # Solution 2: Clean up old logs
-find mission_logs/ -name "*.json" -mtime +30 -delete
+find .launchonomy/ -name "*.json" -mtime +30 -delete
 
 # Solution 3: Use database for large deployments
 # Consider PostgreSQL for production use
@@ -532,7 +531,7 @@ class MissionLogMonitor(FileSystemEventHandler):
 
 # Start monitoring
 observer = Observer()
-observer.schedule(MissionLogMonitor(), "mission_logs/", recursive=False)
+observer.schedule(MissionLogMonitor(), ".launchonomy/", recursive=False)
 observer.start()
 ```
 
@@ -584,7 +583,7 @@ def reset_mission_state(mission_id):
     os.makedirs(backup_dir, exist_ok=True)
     
     # Find mission files
-    mission_files = glob.glob(f"mission_logs/*{mission_id}*")
+    mission_files = glob.glob(f".launchonomy/*{mission_id}*")
     
     for file_path in mission_files:
         # Create backup

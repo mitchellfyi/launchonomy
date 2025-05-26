@@ -13,8 +13,8 @@ class CampaignAgent(BaseWorkflowAgent):
     REQUIRED_TOOLS = ["email_marketing", "social_media"]
     OPTIONAL_TOOLS = ["paid_advertising", "content_management", "seo_tools", "analytics", "a_b_testing"]
     
-    def __init__(self, registry=None, orchestrator=None):
-        super().__init__("CampaignAgent", registry, orchestrator)
+    def __init__(self, registry=None, orchestrator=None, mission_context=None):
+        super().__init__("CampaignAgent", registry, orchestrator, mission_context)
         self.system_prompt = self._build_system_prompt()
         self.active_campaigns = {}
         self.optimization_history = []

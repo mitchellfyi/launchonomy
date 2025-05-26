@@ -229,7 +229,7 @@ Testing Agent Loading at Startup
 ### Test Data Cleanup
 
 Some tests create temporary files in:
-- `mission_logs/` - Mission and cycle log files
+- `.launchonomy/` - Mission workspace system directories
 - `tools/stubs/` - Auto-provisioned tool stubs
 
 These can be safely deleted between test runs if needed.

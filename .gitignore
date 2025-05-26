@@ -1,5 +1,5 @@
-# Mission logs
-mission_logs/
+# Legacy fallback removed - only Mission Workspace System used
+.launchonomy
 
 # Python
 __pycache__/

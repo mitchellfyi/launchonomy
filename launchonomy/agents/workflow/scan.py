@@ -13,8 +13,8 @@ class ScanAgent(BaseWorkflowAgent):
     REQUIRED_TOOLS = ["market_research", "competitor_analysis"]
     OPTIONAL_TOOLS = ["trend_analysis", "keyword_research", "social_media_monitoring"]
     
-    def __init__(self, registry=None, orchestrator=None):
-        super().__init__("ScanAgent", registry, orchestrator)
+    def __init__(self, registry=None, orchestrator=None, mission_context=None):
+        super().__init__("ScanAgent", registry, orchestrator, mission_context)
         self.system_prompt = self._build_system_prompt()
     
     def _build_system_prompt(self) -> str:
