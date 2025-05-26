@@ -741,7 +741,8 @@ class OrchestrationAgent(RoutedAgent):
     async def _conduct_csuite_planning(self, strategic_csuite: List[str], mission_context: Dict[str, Any], 
                                      loop_results: Dict[str, Any], cycle_log: Dict[str, Any]) -> Dict[str, Any]:
         """Conduct C-Suite strategic planning session."""
-        self._log("Conducting C-Suite strategic planning session...", "info")
+        iteration = cycle_log.get("iteration", 1)
+        # self._log(f"🏛️ C-Suite strategic planning session starting for iteration {iteration}...", "info")
         
         planning_results = {
             "strategic_focus": "customer_acquisition",
@@ -759,8 +760,10 @@ class OrchestrationAgent(RoutedAgent):
                     available_csuite.append(agent_name)
             
             if not available_csuite:
-                self._log("No C-Suite agents available for planning", "warning")
+                self._log("⚠️ No C-Suite agents available for planning - proceeding with default strategy", "warning")
                 return planning_results
+            
+            # self._log(f"📋 C-Suite planning participants: {', '.join(available_csuite)}", "info")
             
             # Conduct planning with available C-Suite agents
             planning_context = {
@@ -773,6 +776,7 @@ class OrchestrationAgent(RoutedAgent):
             # Get strategic input from each C-Suite agent
             for agent_name in available_csuite[:3]:  # Limit to 3 agents to avoid too many calls
                 try:
+                    self._log(f"🎯 Consulting {agent_name} for strategic input...", "info")
                     agent = self.agents[agent_name]
                     planning_prompt = f"""
                     Mission Context: {json.dumps(planning_context, indent=2)}
@@ -791,6 +795,24 @@ class OrchestrationAgent(RoutedAgent):
                     try:
                         # Try to parse as JSON first
                         agent_input = json.loads(response)
+                        focus = agent_input.get("focus", "general_strategy")
+                        self._log(f"💡 {agent_name} recommends focus: {focus}", "info")
+                        
+                        # Log budget recommendations
+                        budget_rec = agent_input.get("budget_recommendation", {})
+                        if budget_rec:
+                            budget_summary = ", ".join([f"{k}: ${v}" for k, v in budget_rec.items()])
+                            self._log(f"💰 {agent_name} budget allocation: {budget_summary}", "info")
+                        
+                        # Log key risks and opportunities
+                        risks = agent_input.get("risks", [])
+                        if risks:
+                            self._log(f"⚠️ {agent_name} identifies risks: {', '.join(risks[:2])}", "info")
+                        
+                        opportunities = agent_input.get("opportunities", [])
+                        if opportunities:
+                            self._log(f"🚀 {agent_name} sees opportunities: {', '.join(opportunities[:2])}", "info")
+                        
                         planning_results["key_decisions"].append({
                             "agent": agent_name,
                             "input": agent_input
@@ -805,6 +827,10 @@ class OrchestrationAgent(RoutedAgent):
                             "opportunities": ["ai_automation", "saas_growth"],
                             "raw_response": response[:200] + "..." if len(response) > 200 else response
                         }
+                        
+                        # Log the interpreted decision
+                        self._log(f"💡 {agent_name} recommends focus: {agent_input['focus']} (interpreted)", "info")
+                        
                         planning_results["key_decisions"].append({
                             "agent": agent_name,
                             "input": agent_input
@@ -816,11 +842,50 @@ class OrchestrationAgent(RoutedAgent):
             # Synthesize C-Suite consensus
             if planning_results["key_decisions"]:
                 planning_results["consensus_reached"] = True
-                planning_results["next_actions"] = [
-                    "Execute workflow agents based on strategic focus",
-                    "Monitor budget utilization",
-                    "Track key performance indicators"
-                ]
+                
+                # Determine primary strategic focus from C-Suite input
+                focus_votes = {}
+                for decision in planning_results["key_decisions"]:
+                    focus = decision["input"].get("focus", "general_strategy")
+                    focus_votes[focus] = focus_votes.get(focus, 0) + 1
+                
+                if focus_votes:
+                    primary_focus = max(focus_votes, key=focus_votes.get)
+                    planning_results["strategic_focus"] = primary_focus
+                    self._log(f"🎯 C-Suite consensus: Primary focus is '{primary_focus}'", "info")
+                
+                # Generate specific next actions based on focus
+                if primary_focus == "customer_acquisition":
+                    planning_results["next_actions"] = [
+                        "Execute ScanAgent to identify high-conversion opportunities",
+                        "Deploy customer acquisition campaigns via CampaignAgent",
+                        "Monitor conversion metrics and customer feedback"
+                    ]
+                elif primary_focus == "product_development":
+                    planning_results["next_actions"] = [
+                        "Execute DeployAgent for rapid MVP development",
+                        "Implement A/B testing for product features",
+                        "Gather user feedback and iterate quickly"
+                    ]
+                elif primary_focus == "growth_acceleration":
+                    planning_results["next_actions"] = [
+                        "Execute GrowthAgent for viral growth experiments",
+                        "Scale successful marketing channels",
+                        "Optimize conversion funnels and retention"
+                    ]
+                else:
+                    planning_results["next_actions"] = [
+                        "Execute workflow agents based on strategic focus",
+                        "Monitor budget utilization and ROI",
+                        "Track key performance indicators"
+                    ]
+                
+                # Log the planned next actions
+                self._log(f"📋 Next actions planned:", "info")
+                for i, action in enumerate(planning_results["next_actions"], 1):
+                    self._log(f"   {i}. {action}", "info")
+            else:
+                self._log("⚠️ No C-Suite decisions received - using default strategy", "warning")
             
         except Exception as e:
             self._log(f"Error in C-Suite planning: {str(e)}", "error")
@@ -831,7 +896,9 @@ class OrchestrationAgent(RoutedAgent):
     async def _conduct_csuite_review(self, strategic_csuite: List[str], cycle_log: Dict[str, Any], 
                                    loop_results: Dict[str, Any]) -> Dict[str, Any]:
         """Conduct C-Suite review of cycle results."""
-        self._log("Conducting C-Suite review session...", "info")
+        iteration = cycle_log.get("iteration", 1)
+        revenue = cycle_log.get("revenue_generated", 0.0)
+        # self._log(f"📊 C-Suite review session starting for iteration {iteration} (Revenue: ${revenue:.2f})...", "info")
         
         review_results = {
             "overall_assessment": "satisfactory",
@@ -849,8 +916,10 @@ class OrchestrationAgent(RoutedAgent):
                     available_csuite.append(agent_name)
             
             if not available_csuite:
-                self._log("No C-Suite agents available for review", "warning")
+                self._log("⚠️ No C-Suite agents available for review - using default assessment", "warning")
                 return review_results
+            
+            # self._log(f"👥 C-Suite review participants: {', '.join(available_csuite)}", "info")
             
             # Review context
             review_context = {
@@ -867,9 +936,22 @@ class OrchestrationAgent(RoutedAgent):
                 }
             }
             
+            # Log cycle performance summary
+            successful = cycle_log.get("cycle_successful", False)
+            agents_executed = list(cycle_log.get("steps", {}).keys())
+            errors = cycle_log.get("errors", [])
+            
+            self._log(f"📈 Cycle Performance Summary:", "info")
+            self._log(f"   • Success: {'✅' if successful else '❌'}", "info")
+            # self._log(f"   • Revenue: ${revenue:.2f}", "info")
+            self._log(f"   • Agents executed: {len(agents_executed)}", "info")
+            if errors:
+                self._log(f"   • Errors encountered: {len(errors)}", "warning")
+            
             # Get review input from key C-Suite agents
             for agent_name in available_csuite[:2]:  # Limit to 2 agents for review
                 try:
+                    # self._log(f"🔍 Getting performance review from {agent_name}...", "info")
                     agent = self.agents[agent_name]
                     review_prompt = f"""
                     Cycle Results: {json.dumps(review_context, indent=2)}
@@ -888,25 +970,45 @@ class OrchestrationAgent(RoutedAgent):
                     try:
                         # Try to parse as JSON first
                         agent_review = json.loads(response)
-                        if agent_review.get("adjustments"):
-                            review_results["strategic_adjustments"].extend(agent_review["adjustments"])
-                        if agent_review.get("next_focus"):
-                            review_results["next_iteration_focus"] = agent_review["next_focus"]
+                        
+                        # Log the agent's assessment
+                        assessment = agent_review.get("assessment", "no assessment provided")
+                        self._log(f"📝 {agent_name} assessment: {assessment}", "info")
+                        
+                        # Log strategic adjustments
+                        adjustments = agent_review.get("adjustments", [])
+                        if adjustments:
+                            self._log(f"🔧 {agent_name} recommends adjustments:", "info")
+                            for adj in adjustments[:2]:  # Limit to first 2 adjustments
+                                self._log(f"   • {adj}", "info")
+                            review_results["strategic_adjustments"].extend(adjustments)
+                        
+                        # Log next focus recommendation
+                        next_focus = agent_review.get("next_focus", "")
+                        if next_focus:
+                            self._log(f"🎯 {agent_name} recommends next focus: {next_focus}", "info")
+                            review_results["next_iteration_focus"] = next_focus
+                            
                     except json.JSONDecodeError:
                         # If JSON parsing fails, extract insights from natural language response
                         self._log(f"Converting natural language review from {agent_name} to structured format", "debug")
                         
                         # Extract key insights from natural language
                         if "adjust" in response.lower() or "change" in response.lower():
-                            review_results["strategic_adjustments"].append(f"{agent_name}: {response[:100]}...")
+                            adjustment = f"{agent_name}: {response[:100]}..."
+                            review_results["strategic_adjustments"].append(adjustment)
+                            self._log(f"🔧 {agent_name} suggests adjustment (interpreted)", "info")
                         
                         if "focus" in response.lower():
                             if "marketing" in response.lower():
                                 review_results["next_iteration_focus"] = "marketing_optimization"
+                                self._log(f"🎯 {agent_name} recommends focus: marketing_optimization (interpreted)", "info")
                             elif "product" in response.lower():
                                 review_results["next_iteration_focus"] = "product_development"
+                                self._log(f"🎯 {agent_name} recommends focus: product_development (interpreted)", "info")
                             elif "growth" in response.lower():
                                 review_results["next_iteration_focus"] = "growth_acceleration"
+                                self._log(f"🎯 {agent_name} recommends focus: growth_acceleration (interpreted)", "info")
                         
                         # Store raw response for reference
                         review_results[f"{agent_name}_raw_review"] = response[:200] + "..." if len(response) > 200 else response
@@ -917,11 +1019,20 @@ class OrchestrationAgent(RoutedAgent):
         except Exception as e:
             self._log(f"Error in C-Suite review: {str(e)}", "error")
         
+        # Log review summary
+        self._log(f"📋 C-Suite Review Summary:", "info")
+        self._log(f"   • Overall assessment: {review_results['overall_assessment']}", "info")
+        self._log(f"   • Next iteration focus: {review_results['next_iteration_focus']}", "info")
+        if review_results["strategic_adjustments"]:
+            self._log(f"   • Strategic adjustments: {len(review_results['strategic_adjustments'])} recommended", "info")
+        else:
+            self._log(f"   • Strategic adjustments: None recommended", "info")
+        
         return review_results
 
     async def _get_cfo_growth_approval(self, revenue_generated: float) -> Dict[str, Any]:
         """Get CFO approval for growth investment."""
-        self._log("Requesting CFO approval for growth investment...", "info")
+        self._log(f"💰 Requesting CFO approval for growth investment (Current revenue: ${revenue_generated:.2f})...", "info")
         
         approval_result = {
             "approved": False,
@@ -931,6 +1042,7 @@ class OrchestrationAgent(RoutedAgent):
         
         try:
             if "CFO-Agent" in self.agents:
+                self._log(f"🏦 Consulting CFO-Agent for growth investment approval...", "info")
                 cfo_agent = self.agents["CFO-Agent"]
                 
                 approval_prompt = f"""
@@ -947,10 +1059,17 @@ class OrchestrationAgent(RoutedAgent):
                 try:
                     # Try to parse as JSON first
                     cfo_decision = json.loads(response)
+                    approved = cfo_decision.get("approved", False)
+                    budget = cfo_decision.get("budget", 0.0)
+                    reason = cfo_decision.get("reason", "CFO decision")
+                    
+                    self._log(f"💼 CFO Decision: {'APPROVED' if approved else 'DENIED'} - Budget: ${budget:.2f}", "info")
+                    self._log(f"💭 CFO Reasoning: {reason[:100]}...", "info")
+                    
                     approval_result = {
-                        "approved": cfo_decision.get("approved", False),
-                        "approved_budget": cfo_decision.get("budget", 0.0),
-                        "reason": cfo_decision.get("reason", "CFO decision")
+                        "approved": approved,
+                        "approved_budget": budget,
+                        "reason": reason
                     }
                 except json.JSONDecodeError:
                     # If JSON parsing fails, interpret natural language response
@@ -960,12 +1079,15 @@ class OrchestrationAgent(RoutedAgent):
                     response_lower = response.lower()
                     if any(word in response_lower for word in ["yes", "approve", "approved", "go ahead", "proceed"]):
                         max_budget = revenue_generated * 0.15  # Conservative 15% of revenue
+                        budget = min(100, max_budget)
+                        self._log(f"💼 CFO Decision: APPROVED (interpreted) - Budget: ${budget:.2f}", "info")
                         approval_result = {
                             "approved": True,
-                            "approved_budget": min(100, max_budget),
+                            "approved_budget": budget,
                             "reason": f"CFO approved based on natural language response: {response[:100]}..."
                         }
                     else:
+                        self._log(f"💼 CFO Decision: DENIED (interpreted)", "info")
                         approval_result = {
                             "approved": False,
                             "approved_budget": 0.0,
@@ -973,22 +1095,35 @@ class OrchestrationAgent(RoutedAgent):
                         }
             else:
                 # Default approval logic if CFO not available
+                self._log(f"🤖 CFO-Agent not available - using automatic approval logic", "info")
                 max_budget = revenue_generated * 0.2  # 20% of revenue
                 if max_budget > 50:  # Minimum threshold
+                    budget = min(100, max_budget)
+                    self._log(f"💼 Automatic Decision: APPROVED - Budget: ${budget:.2f} (based on revenue threshold)", "info")
                     approval_result = {
                         "approved": True,
-                        "approved_budget": min(100, max_budget),
+                        "approved_budget": budget,
                         "reason": "Automatic approval based on revenue threshold"
                     }
+                else:
+                    self._log(f"💼 Automatic Decision: DENIED - Insufficient revenue (${revenue_generated:.2f})", "info")
                 
         except Exception as e:
             self._log(f"Error getting CFO approval: {str(e)}", "error")
+        
+        # Log final approval summary
+        if approval_result["approved"]:
+            self._log(f"✅ Growth investment APPROVED: ${approval_result['approved_budget']:.2f}", "info")
+        else:
+            self._log(f"❌ Growth investment DENIED: {approval_result['reason']}", "info")
         
         return approval_result
 
     async def _get_csuite_mission_completion_consensus(self, loop_results: Dict[str, Any]) -> Dict[str, Any]:
         """Get C-Suite consensus on mission completion."""
-        self._log("Requesting C-Suite consensus on mission completion...", "info")
+        total_revenue = loop_results.get("total_revenue_generated", 0.0)
+        successful_cycles = loop_results.get("successful_cycles", 0)
+        self._log(f"🏁 Requesting C-Suite consensus on mission completion (Revenue: ${total_revenue:.2f}, Successful cycles: {successful_cycles})...", "info")
         
         consensus_result = {
             "mission_complete": False,
@@ -998,10 +1133,8 @@ class OrchestrationAgent(RoutedAgent):
         
         try:
             # Check if we have significant progress
-            total_revenue = loop_results.get("total_revenue_generated", 0.0)
-            successful_cycles = loop_results.get("successful_cycles", 0)
-            
             if total_revenue > 1000 and successful_cycles >= 3:
+                self._log(f"📊 Mission progress meets completion criteria - consulting C-Suite...", "info")
                 # Get C-Suite input on completion
                 available_csuite = ["CEO-Agent", "CRO-Agent", "CFO-Agent"]
                 completion_votes = []
@@ -1009,6 +1142,7 @@ class OrchestrationAgent(RoutedAgent):
                 for agent_name in available_csuite:
                     if agent_name in self.agents:
                         try:
+                            self._log(f"🗳️ Getting mission completion vote from {agent_name}...", "info")
                             agent = self.agents[agent_name]
                             completion_prompt = f"""
                             Mission Progress:
@@ -1027,13 +1161,18 @@ class OrchestrationAgent(RoutedAgent):
                             try:
                                 # Try to parse as JSON first
                                 vote = json.loads(response)
-                                completion_votes.append(vote.get("mission_complete", False))
+                                vote_result = vote.get("mission_complete", False)
+                                reasoning = vote.get("reasoning", "No reasoning provided")
+                                self._log(f"✅ {agent_name} votes: {'COMPLETE' if vote_result else 'CONTINUE'} - {reasoning[:50]}...", "info")
+                                completion_votes.append(vote_result)
                             except json.JSONDecodeError:
                                 # If JSON parsing fails, interpret natural language response
                                 response_lower = response.lower()
                                 if any(word in response_lower for word in ["yes", "complete", "finished", "achieved", "success"]):
+                                    self._log(f"✅ {agent_name} votes: COMPLETE (interpreted from natural language)", "info")
                                     completion_votes.append(True)
                                 else:
+                                    self._log(f"🔄 {agent_name} votes: CONTINUE (interpreted from natural language)", "info")
                                     completion_votes.append(False)
                                 
                         except Exception as e:
@@ -1042,11 +1181,20 @@ class OrchestrationAgent(RoutedAgent):
                 
                 # Require unanimous consensus
                 if completion_votes and all(completion_votes):
+                    self._log(f"🎉 Unanimous C-Suite consensus: Mission is COMPLETE!", "info")
                     consensus_result = {
                         "mission_complete": True,
                         "consensus_reached": True,
                         "reasoning": "Unanimous C-Suite consensus: Mission objectives achieved"
                     }
+                elif completion_votes:
+                    complete_votes = sum(completion_votes)
+                    total_votes = len(completion_votes)
+                    self._log(f"🔄 C-Suite consensus: {complete_votes}/{total_votes} vote to complete - mission continues", "info")
+                else:
+                    self._log(f"⚠️ No C-Suite votes received - mission continues by default", "warning")
+            else:
+                self._log(f"📊 Mission progress insufficient for completion (Revenue: ${total_revenue:.2f}, Cycles: {successful_cycles})", "info")
                 
         except Exception as e:
             self._log(f"Error getting mission completion consensus: {str(e)}", "error")
