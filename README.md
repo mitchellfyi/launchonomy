@@ -3,7 +3,7 @@
 A comprehensive system for orchestrating AI agents to build and grow autonomous businesses through C-Suite strategic decision-making and workflow automation.
 
 <p align="center">
-  <img src="./docs/screenshot-agents.png" width="800">
+  <img src="./docs/screencast.gif" width="600">
 </p>
 
 ## 🤖 Built With AI
@@ -96,6 +96,10 @@ python -m launchonomy.cli
 ```
 
 ## 🎯 How It Works
+
+<p align="center">
+  <img src="./docs/screenshot-agents.png" width="600">
+</p>
 
 ### C-Suite Orchestrated Approach
 
@@ -222,7 +226,7 @@ launchonomy/
 Launchonomy automatically detects resumable missions and presents a menu:
 
 <p align="center">
-  <img src="./docs/screenshot-missions.png" width="800">
+  <img src="./docs/screenshot-missions.png" width="600">
 </p>
 
 ### Mission Log Analysis
