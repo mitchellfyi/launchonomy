@@ -1,11 +1,134 @@
 import logging
 import os # For _log when not in class context, if needed
 from datetime import datetime
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 from dataclasses import dataclass, field, asdict
 import json
+from enum import Enum
 
 logger = logging.getLogger(__name__) # For module-level logging if any
+
+# Enhanced logging with AutoGen v0.4 patterns
+class LogLevel(Enum):
+    """Standardized log levels."""
+    DEBUG = "debug"
+    INFO = "info"
+    WARNING = "warning"
+    ERROR = "error"
+    CRITICAL = "critical"
+
+class ErrorCategory(Enum):
+    """Categorize errors for better handling."""
+    COMMUNICATION = "communication"
+    RATE_LIMIT = "rate_limit"
+    TIMEOUT = "timeout"
+    VALIDATION = "validation"
+    SYSTEM = "system"
+    USER_INPUT = "user_input"
+
+@dataclass
+class StructuredLogEntry:
+    """Structured log entry for better analysis."""
+    timestamp: str
+    level: LogLevel
+    component: str
+    message: str
+    context: Optional[Dict[str, Any]] = None
+    error_category: Optional[ErrorCategory] = None
+    agent_id: Optional[str] = None
+    cost: Optional[float] = None
+    tokens_used: Optional[int] = None
+
+class EnhancedLogger:
+    """Enhanced logging with AutoGen v0.4 improvements."""
+    
+    def __init__(self, component_name: str):
+        self.component_name = component_name
+        self.logger = logging.getLogger(component_name)
+        self.structured_logs: List[StructuredLogEntry] = []
+    
+    def _create_entry(self, level: LogLevel, message: str, **kwargs) -> StructuredLogEntry:
+        """Create structured log entry."""
+        return StructuredLogEntry(
+            timestamp=datetime.now().isoformat(),
+            level=level,
+            component=self.component_name,
+            message=message,
+            **kwargs
+        )
+    
+    def debug(self, message: str, **kwargs):
+        """Enhanced debug logging."""
+        entry = self._create_entry(LogLevel.DEBUG, message, **kwargs)
+        self.structured_logs.append(entry)
+        self.logger.debug(f"[{self.component_name}] {message}")
+    
+    def info(self, message: str, **kwargs):
+        """Enhanced info logging."""
+        entry = self._create_entry(LogLevel.INFO, message, **kwargs)
+        self.structured_logs.append(entry)
+        self.logger.info(f"[{self.component_name}] {message}")
+    
+    def warning(self, message: str, error_category: Optional[ErrorCategory] = None, **kwargs):
+        """Enhanced warning logging with categorization."""
+        entry = self._create_entry(LogLevel.WARNING, message, error_category=error_category, **kwargs)
+        self.structured_logs.append(entry)
+        self.logger.warning(f"[{self.component_name}] {message}")
+    
+    def error(self, message: str, error_category: Optional[ErrorCategory] = None, **kwargs):
+        """Enhanced error logging with categorization."""
+        entry = self._create_entry(LogLevel.ERROR, message, error_category=error_category, **kwargs)
+        self.structured_logs.append(entry)
+        self.logger.error(f"[{self.component_name}] {message}")
+    
+    def critical(self, message: str, error_category: Optional[ErrorCategory] = None, **kwargs):
+        """Enhanced critical logging."""
+        entry = self._create_entry(LogLevel.CRITICAL, message, error_category=error_category, **kwargs)
+        self.structured_logs.append(entry)
+        self.logger.critical(f"[{self.component_name}] {message}")
+    
+    def log_agent_interaction(self, agent_id: str, message: str, cost: float = 0.0, tokens: int = 0):
+        """Log agent interactions with cost tracking."""
+        self.info(
+            f"Agent interaction: {message}",
+            agent_id=agent_id,
+            cost=cost,
+            tokens_used=tokens
+        )
+    
+    def log_error_with_context(self, error: Exception, context: Dict[str, Any], category: ErrorCategory):
+        """Log errors with full context for debugging."""
+        self.error(
+            f"Error occurred: {str(error)}",
+            error_category=category,
+            context={
+                **context,
+                "error_type": type(error).__name__,
+                "error_details": str(error)
+            }
+        )
+    
+    def get_error_summary(self) -> Dict[str, Any]:
+        """Get summary of errors by category."""
+        error_counts = {}
+        for entry in self.structured_logs:
+            if entry.level in [LogLevel.ERROR, LogLevel.CRITICAL] and entry.error_category:
+                category = entry.error_category.value
+                error_counts[category] = error_counts.get(category, 0) + 1
+        
+        return {
+            "total_errors": len([e for e in self.structured_logs if e.level in [LogLevel.ERROR, LogLevel.CRITICAL]]),
+            "by_category": error_counts,
+            "recent_errors": [
+                asdict(e) for e in self.structured_logs[-10:] 
+                if e.level in [LogLevel.ERROR, LogLevel.CRITICAL]
+            ]
+        }
+    
+    def export_logs(self, filepath: str):
+        """Export structured logs to file."""
+        with open(filepath, 'w') as f:
+            json.dump([asdict(entry) for entry in self.structured_logs], f, indent=2)
 
 # Renamed from MissionLog to OverallMissionLog
 @dataclass

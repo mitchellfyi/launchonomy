@@ -2,6 +2,16 @@
 
 A comprehensive system for orchestrating AI agents to build and grow autonomous businesses through C-Suite strategic decision-making and workflow automation.
 
+## 🤖 Built With AI
+
+This project is built using cutting-edge AI development tools and frameworks:
+
+- **🔧 Framework**: [Microsoft AutoGen](https://github.com/microsoft/autogen) - Multi-agent conversation framework
+- **💻 Development**: [Cursor](https://cursor.sh/) + [Claude Sonnet 4](https://www.anthropic.com/claude) - AI-powered coding
+- **🧠 Advisory**: [ChatGPT o1-mini](https://openai.com/chatgpt) - Strategic guidance and architecture advice
+
+*Launchonomy represents the future of AI-assisted development - where AI agents not only run businesses but also build the systems that run them.*
+
 ## 🏗️ Architecture
 
 Launchonomy uses a modular architecture with clear separation of concerns:
@@ -24,16 +34,25 @@ launchonomy/
 │   │   │   ├── campaign.py         # Marketing campaigns
 │   │   │   ├── analytics.py        # Analytics and metrics
 │   │   │   ├── finance.py          # Financial management
-│   │   │   └── growth.py           # Growth optimization
+│   │   │   ├── growth.py           # Growth optimization
+│   │   │   ├── agent_dev.py        # Agent development automation
+│   │   │   ├── agent_qa.py         # Agent quality assurance
+│   │   │   ├── agent_trainer.py    # Agent training and improvement
+│   │   │   ├── tool_dev.py         # Tool development automation
+│   │   │   ├── tool_qa.py          # Tool quality assurance
+│   │   │   └── tool_trainer.py     # Tool training and improvement
 │   │   └── csuite/                 # C-Suite agents (future)
 │   ├── registry/                   # Agent registry system
 │   │   ├── registry.py             # Agent discovery and management
 │   │   └── registry.json           # Agent specifications
 │   ├── templates/                  # Agent templates and prompts
+│   ├── tools/                      # Tool implementations
+│   │   ├── stubs/                  # Tool stub files
+│   │   └── __init__.py
 │   └── utils/                      # Utilities
 │       ├── logging.py              # Mission logging
-│       └── consensus.py            # Consensus voting
-├── tools/                          # External tools
+│       ├── consensus.py            # Consensus voting
+│       └── mission_log_navigator.py # Mission log analysis
 ├── tests/                          # Test suite
 ├── mission_logs/                   # Mission execution logs
 └── main.py                         # Entry point
@@ -223,6 +242,68 @@ mission_logs/mission_20250526_005050_test_reorganized_codebase.json
 - Growth loop optimization
 - Scaling strategy development
 
+### Self-Provisioning Workflow Agents
+
+#### AgentDev
+**Role**: Agent development automation specialist  
+**Description**: Automatically builds out stub agents into working implementations. Monitors registry for pending agent stubs, generates implementation code, and triggers quality assurance testing.
+
+**Key Capabilities**:
+- Stub-to-implementation code generation
+- Agent file creation and organization
+- Registry status management
+- QA workflow triggering
+
+#### AgentQA
+**Role**: Agent quality assurance specialist  
+**Description**: Tests and validates newly built agents through comprehensive test suites. Validates functionality, error handling, and workflow compliance before proposing certification.
+
+**Key Capabilities**:
+- Automated agent testing
+- Functionality validation
+- Error handling verification
+- Certification proposal generation
+
+#### AgentTrainer
+**Role**: Agent training and improvement specialist  
+**Description**: Analyzes agent performance data, identifies improvement opportunities, and generates enhanced training prompts and specifications for continuous agent evolution.
+
+**Key Capabilities**:
+- Performance analysis and scoring
+- Failure pattern identification
+- Training prompt enhancement
+- Specification improvement
+
+#### ToolDev
+**Role**: Tool development automation specialist  
+**Description**: Automatically builds out stub tools into working implementations. Generates tool code with proper API handling, authentication, and error management.
+
+**Key Capabilities**:
+- Tool implementation generation
+- API integration setup
+- Authentication configuration
+- Error handling implementation
+
+#### ToolQA
+**Role**: Tool quality assurance specialist  
+**Description**: Tests and validates newly built tools through comprehensive test suites including connection tests, schema validation, and error handling verification.
+
+**Key Capabilities**:
+- Automated tool testing
+- API connectivity validation
+- Schema compliance verification
+- Performance benchmarking
+
+#### ToolTrainer
+**Role**: Tool training and improvement specialist  
+**Description**: Analyzes tool performance, identifies configuration improvements, and enhances tool specifications for better reliability and functionality.
+
+**Key Capabilities**:
+- Tool performance analysis
+- Configuration optimization
+- Schema enhancement
+- Endpoint improvement
+
 ### Utility Components
 
 #### Registry
@@ -323,7 +404,7 @@ Options:
 Use the mission log navigator to analyze completed missions:
 
 ```bash
-python tools/mission_log_navigator.py
+python launchonomy/utils/mission_log_navigator.py
 ```
 
 ## 🧪 Development

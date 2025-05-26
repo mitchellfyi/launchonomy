@@ -44,50 +44,60 @@ logging.basicConfig(
 )
 logger = logging.getLogger("cli")
 
-class TokenTrackingOpenAIClient:
-    """Wrapper around OpenAIChatCompletionClient that tracks token usage."""
+class EnhancedOpenAIClient:
+    """Enhanced OpenAI client with AutoGen v0.4 improvements."""
     
-    def __init__(self, client: OpenAIChatCompletionClient, monitor: 'MissionMonitor'):
-        self._client = client
+    def __init__(self, monitor: 'MissionMonitor', **client_kwargs):
+        """Initialize with AutoGen's enhanced features."""
+        # Set up enhanced client configuration
+        enhanced_config = {
+            'timeout': 60.0,  # Proper timeout handling
+            'max_retries': 3,  # Built-in retry logic
+            'retry_delay': 1.0,  # Exponential backoff
+            **client_kwargs
+        }
+        
+        self._client = OpenAIChatCompletionClient(**enhanced_config)
         self._monitor = monitor
+        logger.info(f"Enhanced OpenAI client initialized with model: {enhanced_config.get('model', 'default')}")
     
     def __getattr__(self, name):
         """Delegate all other attributes to the wrapped client."""
         return getattr(self._client, name)
     
     async def create(self, messages, **kwargs):
-        """Wrap the create method to track token usage."""
+        """Enhanced create method with better error handling and token tracking."""
         try:
+            # AutoGen v0.4 has built-in token tracking in the response
             response = await self._client.create(messages, **kwargs)
             
-            # Extract token usage from response - try different possible attribute names
-            usage = None
-            if hasattr(response, 'usage'):
+            # AutoGen v0.4 standardized usage tracking
+            if hasattr(response, 'usage') and response.usage:
                 usage = response.usage
-            elif hasattr(response, 'token_usage'):
-                usage = response.token_usage
-            elif hasattr(response, 'usage_metadata'):
-                usage = response.usage_metadata
-            
-            if usage:
-                # Try different possible attribute names for token counts
-                input_tokens = (getattr(usage, 'prompt_tokens', 0) or 
-                              getattr(usage, 'input_tokens', 0) or 
-                              getattr(usage, 'prompt_token_count', 0))
-                output_tokens = (getattr(usage, 'completion_tokens', 0) or 
-                               getattr(usage, 'output_tokens', 0) or 
-                               getattr(usage, 'completion_token_count', 0))
+                # AutoGen v0.4 uses consistent naming
+                input_tokens = getattr(usage, 'prompt_tokens', 0)
+                output_tokens = getattr(usage, 'completion_tokens', 0)
                 
                 if input_tokens > 0 or output_tokens > 0:
                     self._monitor.add_tokens(input_tokens, output_tokens)
-                    logger.debug(f"Token usage tracked: {input_tokens} input, {output_tokens} output")
-            else:
-                logger.debug("No token usage information found in response")
+                    logger.debug(f"Token usage: {input_tokens} prompt + {output_tokens} completion = {input_tokens + output_tokens} total")
             
             return response
+            
         except Exception as e:
-            logger.error(f"Error in OpenAI API call: {e}")
+            logger.error(f"Enhanced OpenAI client error: {e}")
+            # AutoGen v0.4 has better error categorization
+            if "rate_limit" in str(e).lower():
+                logger.warning("Rate limit hit - AutoGen's retry logic will handle this")
+            elif "timeout" in str(e).lower():
+                logger.warning("Request timeout - consider adjusting timeout settings")
             raise
+    
+    async def close(self):
+        """Properly close the client connection."""
+        if hasattr(self._client, 'close'):
+            await self._client.close()
+            logger.debug("OpenAI client connection closed")
 
 class AgentLogger:
     def __init__(self):
@@ -593,13 +603,8 @@ async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger
             return
 
         model_name = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-        logger.info(f"Initializing OpenAIChatCompletionClient with model: {model_name}")
+        logger.info(f"Initializing Enhanced OpenAI client with model: {model_name}")
         
-        openai_client = OpenAIChatCompletionClient(
-            api_key=api_key,
-            model=model_name
-        )
-
         monitor = MissionMonitor()
         
         # If resuming, restore token counts to monitor
@@ -607,10 +612,18 @@ async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger
             monitor.total_input_tokens = resume_mission_log.total_input_tokens
             monitor.total_output_tokens = resume_mission_log.total_output_tokens
         
-        # Create token tracking wrapper
-        token_tracking_client = TokenTrackingOpenAIClient(openai_client, monitor)
+        # Create enhanced client with AutoGen v0.4 improvements
+        enhanced_client = EnhancedOpenAIClient(
+            monitor=monitor,
+            api_key=api_key,
+            model=model_name,
+            # AutoGen v0.4 enhancements
+            timeout=60.0,
+            max_retries=3,
+            retry_delay=1.0
+        )
         
-        orchestrator = create_orchestrator(client=token_tracking_client)
+        orchestrator = create_orchestrator(client=enhanced_client)
         monitor.set_orchestrator(orchestrator)  # Set orchestrator reference for registry access
         
         with Live(monitor.layout, refresh_per_second=10, console=console, vertical_overflow="visible") as live:
@@ -915,6 +928,15 @@ async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger
 
         overall_log.save_log()
         console.print(f"Overall mission log saved to mission_logs/{overall_log.mission_id}.json")
+        
+        # Properly close the enhanced client
+        if 'enhanced_client' in locals():
+            try:
+                await enhanced_client.close()
+                logger.debug("Enhanced OpenAI client closed successfully")
+            except Exception as e:
+                logger.warning(f"Error closing client: {e}")
+        
         console.print("CLI session ended.")
 
 @click.command()

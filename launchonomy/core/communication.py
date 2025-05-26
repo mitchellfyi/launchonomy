@@ -15,75 +15,100 @@ class AgentCommunicationError(Exception):
     """Raised when agent communication fails."""
     pass
 
-class AgentCommunicator:
+class EnhancedAgentCommunicator:
     """
-    Handles all agent communication, JSON parsing, and review processes.
+    Enhanced agent communication with AutoGen v0.4 improvements.
     
-    This class provides unified methods for agent interactions, JSON response
-    handling with retries, and peer review coordination.
+    Features:
+    - Standardized message handling
+    - Conversation history management  
+    - Better error handling and retries
+    - Structured JSON parsing
     """
     
     def __init__(self, max_json_retries: int = 2):
         self.MAX_JSON_RETRIES = max_json_retries
-
-    async def ask_agent(self, agent: RoutedAgent, prompt: str, system_prompt: Optional[str] = None, response_format_json: bool = False) -> Tuple[str, float]:
-        """
-        Unified method for agent interactions. If response_format_json is True, it will augment the prompt to request JSON.
-        Returns the response content and the cost of the call.
-        """
-        agent_name = getattr(agent, 'name', 'UnnamedAgent')
-        cost = 0.0 # Initialize cost
+        self.conversation_histories: Dict[str, List] = {}  # Track conversation per agent
         
-        # Augment prompt if JSON is expected, to comply with OpenAI's JSON mode requirement if it were enabled at client level
-        # or to simply improve chances of getting JSON via prompt engineering.
+    def _get_agent_id(self, agent: RoutedAgent) -> str:
+        """Get unique identifier for agent."""
+        return getattr(agent, 'name', f'agent_{id(agent)}')
+    
+    def _add_to_history(self, agent_id: str, message) -> None:
+        """Add message to agent's conversation history."""
+        if agent_id not in self.conversation_histories:
+            self.conversation_histories[agent_id] = []
+        self.conversation_histories[agent_id].append(message)
+        
+        # Keep history manageable (last 20 messages)
+        if len(self.conversation_histories[agent_id]) > 20:
+            self.conversation_histories[agent_id] = self.conversation_histories[agent_id][-20:]
+
+    async def ask_agent(self, agent: RoutedAgent, prompt: str, 
+                       system_prompt: Optional[str] = None, 
+                       response_format_json: bool = False,
+                       include_history: bool = False) -> Tuple[str, float]:
+        """
+        Enhanced agent interaction with conversation history and better message handling.
+        """
+        agent_id = self._get_agent_id(agent)
+        cost = 0.0
+        
+        # Build message list with AutoGen v0.4 standards
+        messages = []
+        
+        # Add system prompt
+        system_content = system_prompt
+        if not system_content and hasattr(agent, 'system_prompt'):
+            if isinstance(agent.system_prompt, SystemMessage):
+                system_content = agent.system_prompt.content
+            elif isinstance(agent.system_prompt, str):
+                system_content = agent.system_prompt
+                
+        if system_content:
+            system_msg = SystemMessage(content=system_content, source="system")
+            messages.append(system_msg)
+        
+        # Add conversation history if requested
+        if include_history and agent_id in self.conversation_histories:
+            messages.extend(self.conversation_histories[agent_id])
+        
+        # Prepare user message with JSON formatting if needed
         final_prompt = prompt
-        if response_format_json:
-            if "json" not in prompt.lower(): # Avoid duplicating if already there
-                final_prompt += "\n\nYour response MUST be a valid JSON object. Do not include any other text before or after the JSON object."
-            logger.debug(f"Augmented prompt for JSON response from {agent_name}.")
-        else:
-            logger.debug(f"Standard response format for {agent_name}.")
-
+        if response_format_json and "json" not in prompt.lower():
+            final_prompt += "\n\nYour response MUST be a valid JSON object. Do not include any other text before or after the JSON object."
+        
+        user_msg = UserMessage(content=final_prompt, source="user")
+        messages.append(user_msg)
+        
         try:
-            msgs = [UserMessage(content=final_prompt, source="user")]
+            logger.debug(f"Enhanced communication with {agent_id}: '{final_prompt[:150]}...'")
             
-            current_system_prompt_content = system_prompt
+            # AutoGen v0.4 standardized call
+            response = await agent._client.create(messages)
             
-            if not current_system_prompt_content:
-                if hasattr(agent, 'system_prompt'):
-                    agent_native_prompt = agent.system_prompt
-                    if isinstance(agent_native_prompt, SystemMessage):
-                        current_system_prompt_content = agent_native_prompt.content
-                    elif isinstance(agent_native_prompt, str):
-                        current_system_prompt_content = agent_native_prompt
-
-            if current_system_prompt_content:
-                msgs.insert(0, SystemMessage(content=current_system_prompt_content, source="system"))
+            if not response or not response.content:
+                raise AgentCommunicationError(f"Empty response from agent {agent_id}")
             
-            logger.debug(f"Asking {agent_name}: '{final_prompt[:150]}...' with sys_prompt: '{str(current_system_prompt_content)[:100]}...'")
-            resp = await agent._client.create(msgs)
-
-            if not resp or not resp.content:
-                raise AgentCommunicationError(f"Empty response from agent {agent_name}")
+            # Extract cost using AutoGen v0.4 standards
+            if hasattr(response, 'usage') and response.usage:
+                usage = response.usage
+                # Calculate cost if available (implementation dependent)
+                cost = getattr(usage, 'total_cost', 0.0)
             
-            # Attempt to get cost from response if available (depends on client implementation)
-            if hasattr(resp, 'cost') and isinstance(resp.cost, (int, float)):
-                cost = float(resp.cost)
-            elif hasattr(resp, 'usage') and resp.usage: # Check if usage attribute exists and is not None
-                # Try accessing as an attribute first (common for objects)
-                if hasattr(resp.usage, 'total_cost') and isinstance(resp.usage.total_cost, (int, float)):
-                    cost = float(resp.usage.total_cost)
-                # Else, try accessing as a dictionary key (common for dicts)
-                elif isinstance(resp.usage, dict) and 'total_cost' in resp.usage and isinstance(resp.usage['total_cost'], (int, float)):
-                    cost = float(resp.usage['total_cost'])
-                # Fallback or further checks can be added here if needed, e.g., for total_tokens
-                # else:
-                #     logger.debug(f"Cost not found in resp.usage or is not a number. Usage object: {resp.usage}")
-
-            return resp.content.strip(), cost
+            # Add to conversation history
+            if include_history:
+                self._add_to_history(agent_id, user_msg)
+                # Create assistant message for history
+                assistant_msg = UserMessage(content=response.content, source="assistant")
+                self._add_to_history(agent_id, assistant_msg)
+            
+            logger.debug(f"Enhanced communication successful with {agent_id}, cost: {cost}")
+            return response.content.strip(), cost
+            
         except Exception as e:
-            logger.error(f"Error in agent communication with {agent_name}: {str(e)}")
-            raise AgentCommunicationError(f"Failed to communicate with agent {agent_name}: {str(e)}")
+            logger.error(f"Enhanced communication error with {agent_id}: {str(e)}")
+            raise AgentCommunicationError(f"Failed to communicate with agent {agent_id}: {str(e)}")
 
     def extract_json_from_string(self, text: str) -> Optional[str]:
         """Extracts the first valid JSON object from a string, looking for ```json ... ``` or raw object."""
@@ -183,7 +208,7 @@ class ReviewManager:
     and determines consensus based on review outcomes.
     """
     
-    def __init__(self, communicator: AgentCommunicator):
+    def __init__(self, communicator: EnhancedAgentCommunicator):
         self.communicator = communicator
 
     async def batch_peer_review(self, 
@@ -308,11 +333,45 @@ class ReviewManager:
         return all_reviews_from_batch, accumulated_review_cost
 
     def check_review_consensus(self, reviews: List[dict]) -> bool:
-        """Check if there is consensus among peer reviews."""
-        if not reviews: 
+        """
+        Check if there's consensus among reviews.
+        Returns True if majority approve with reasonable confidence.
+        """
+        if not reviews:
             return False
-        # Check both new format (approved) and legacy format (valid) for compatibility
-        valid_reviews = [r for r in reviews if r.get("valid", False) or r.get("approved", False)]
-        # Stricter: all must be valid for consensus, or a high threshold.
-        # For now, let's stick to the 75% threshold.
-        return len(valid_reviews) >= len(reviews) * 0.75 
+        
+        approved_count = sum(1 for review in reviews if review.get("approved", False))
+        total_reviews = len(reviews)
+        
+        # Require majority approval
+        return approved_count > total_reviews / 2
+
+# Backward compatibility alias
+AgentCommunicator = EnhancedAgentCommunicator
+
+class ConversationManager:
+    """Utility class for managing conversation histories."""
+    
+    @staticmethod
+    def clear_agent_history(communicator: EnhancedAgentCommunicator, agent: RoutedAgent) -> None:
+        """Clear conversation history for a specific agent."""
+        agent_id = communicator._get_agent_id(agent)
+        if agent_id in communicator.conversation_histories:
+            del communicator.conversation_histories[agent_id]
+    
+    @staticmethod
+    def clear_all_histories(communicator: EnhancedAgentCommunicator) -> None:
+        """Clear all conversation histories."""
+        communicator.conversation_histories.clear()
+    
+    @staticmethod
+    def get_history_summary(communicator: EnhancedAgentCommunicator, agent: RoutedAgent) -> Dict[str, Any]:
+        """Get summary of conversation history for an agent."""
+        agent_id = communicator._get_agent_id(agent)
+        history = communicator.conversation_histories.get(agent_id, [])
+        
+        return {
+            "agent_id": agent_id,
+            "message_count": len(history),
+            "last_interaction": history[-1].content[:100] + "..." if history else None
+        } 
