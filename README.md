@@ -3,8 +3,9 @@
 A comprehensive system for orchestrating AI agents to build and grow autonomous businesses through C-Suite strategic decision-making and workflow automation.
 
 <p>
-  <video src="[https://github.com/user-attachments/assets/a58449d2-9f7b-4c98-b588-1b805a3ec7ff](https://github.com/user-attachments/assets/a3d5c3b8-fec7-4d0a-aa4c-98f330a8b57c)" controls="controls" style="max-width: 600px;"></video>
+  <video src="https://github.com/user-attachments/assets/172e8edd-eb8a-497c-bf6f-1fd9db9995d7" controls="controls" style="max-width: 600px;"></video>
 </p>
+
 
 ## 🤖 Built With AI
 
