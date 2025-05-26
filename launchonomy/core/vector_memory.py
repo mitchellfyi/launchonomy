@@ -4,8 +4,16 @@ import logging
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
-import chromadb
-from chromadb.config import Settings
+
+# Optional ChromaDB import
+try:
+    import chromadb
+    from chromadb.config import Settings
+    CHROMADB_AVAILABLE = True
+except ImportError:
+    chromadb = None
+    Settings = None
+    CHROMADB_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +44,11 @@ class ChromaDBVectorMemory:
     """
     
     def __init__(self, config: PersistentChromaDBVectorMemoryConfig):
+        if not CHROMADB_AVAILABLE:
+            raise ImportError(
+                "ChromaDB is not installed. Please install it with: pip install chromadb>=0.4.0"
+            )
+        
         self.config = config
         self.persist_directory = config.persist_directory
         self.collection_name = config.collection_name

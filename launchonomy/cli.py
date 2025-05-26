@@ -45,6 +45,40 @@ logging.basicConfig(
 )
 logger = logging.getLogger("cli")
 
+# Suppress other loggers during Live display to prevent UI interference
+def suppress_external_loggers():
+    """Suppress external loggers that interfere with Rich Live display."""
+    # Get all existing loggers and suppress the ones that cause UI interference
+    for name in logging.Logger.manager.loggerDict:
+        if name.startswith(('workflow.', 'autogen', 'openai', 'launchonomy.agents', 'launchonomy.tools')):
+            external_logger = logging.getLogger(name)
+            external_logger.setLevel(logging.CRITICAL)  # Only show critical errors
+            # Remove any handlers that might print to console
+            for handler in external_logger.handlers[:]:
+                if isinstance(handler, logging.StreamHandler):
+                    external_logger.removeHandler(handler)
+    
+    # Also suppress the root logger's console output during Live display
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers[:]:
+        if isinstance(handler, logging.StreamHandler) and handler.stream.name == '<stderr>':
+            # Temporarily increase level to suppress warnings
+            handler.setLevel(logging.CRITICAL)
+
+def restore_external_loggers():
+    """Restore normal logging levels after Live display ends."""
+    # Restore external loggers to WARNING level
+    for name in logging.Logger.manager.loggerDict:
+        if name.startswith(('workflow.', 'autogen', 'openai', 'launchonomy.agents', 'launchonomy.tools')):
+            external_logger = logging.getLogger(name)
+            external_logger.setLevel(logging.WARNING)
+    
+    # Restore root logger handlers
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers[:]:
+        if isinstance(handler, logging.StreamHandler) and handler.stream.name == '<stderr>':
+            handler.setLevel(logging.WARNING)
+
 class EnhancedOpenAIClient:
     """Enhanced OpenAI client with AutoGen v0.4 improvements."""
     
@@ -137,7 +171,7 @@ class MissionMonitor:
         self.current_cycle_agents = set()
         self.all_known_agents = set()
         self.spinner = Spinner("dots", text=Text(self._overall_status_message, style="blue"))
-        self.brief_activity_log_max_lines = 10 # For the UI panel
+        self.brief_activity_log_max_lines = 30 # For tall terminals - shows recent activity
         self.brief_activity_log = [] # Separate list for UI panel
         self.orchestrator = None  # Will be set to access registry
         
@@ -191,12 +225,13 @@ class MissionMonitor:
 
         # Update brief activity log for UI (excluding debug, truncating others)
         if msg_type != "debug":
-            max_brief_len = 400  # Approximately 80 chars per line * 5 lines
+            max_brief_len = 120  # Allow longer messages for better readability
             brief_log_entry = message # Use message directly, not full_log_entry with timestamp
             if len(brief_log_entry) > max_brief_len:
                 brief_log_entry = brief_log_entry[:max_brief_len-3] + "..."
             
             self.brief_activity_log.append(brief_log_entry) 
+            # Always keep the most recent entries (scroll from bottom)
             if len(self.brief_activity_log) > self.brief_activity_log_max_lines:
                 self.brief_activity_log = self.brief_activity_log[-self.brief_activity_log_max_lines:]
         
@@ -285,6 +320,7 @@ class MissionMonitor:
         # Line: Timer and Token usage
         timer_token_line = Text()
         if self._current_operation_start_time and self._mission_is_running:
+            # Always calculate elapsed time fresh for real-time updates
             elapsed_seconds = (datetime.now() - self._current_operation_start_time).total_seconds()
             timer_token_line.append(f"Elapsed: {elapsed_seconds:.1f}s", style="dim")
         else:
@@ -338,10 +374,22 @@ class MissionMonitor:
         self.layout["agents"].update(
             Panel(agents_content, title="Known Agents")
         )
-        # Format activity log with colored agent names
+        # Format activity log with colored agent names (natural chronological order)
         log_content = Text()
         
-        for i, entry in enumerate(self.brief_activity_log):
+        # Get terminal height and calculate available space for logs
+        try:
+            import shutil
+            terminal_height = shutil.get_terminal_size().lines
+            # Account for: mission(3) + status(5) + agents(7) + panel borders/titles(~6) = ~21 lines
+            available_log_height = max(5, terminal_height - 21)
+        except:
+            available_log_height = 15  # Fallback for smaller terminals
+        
+        # Show the most recent entries that fit in available space (auto-scroll to bottom)
+        visible_entries = self.brief_activity_log[-available_log_height:] if len(self.brief_activity_log) > available_log_height else self.brief_activity_log
+        
+        for i, entry in enumerate(visible_entries):
             if i > 0:
                 log_content.append("\n")
             
@@ -360,7 +408,7 @@ class MissionMonitor:
         self.layout["logs"].update(
             Panel(
                 log_content,
-                title="Recent Activity Log"
+                title=f"Activity Log"
             )
         )
 
@@ -493,7 +541,7 @@ def display_mission_selection_menu() -> Optional[str]:
     console.print(f"\n[bold]Found {len(resumable_missions)} resumable mission(s):[/bold]")
     
     # Create table for mission display
-    table = Table(show_header=True, header_style="bold magenta", width=100)
+    table = Table(show_header=True, header_style="bold magenta")
     table.add_column("#", style="bold dim", width=2, no_wrap=True)
     table.add_column("Mission", style="cyan", width=28)
     table.add_column("Status", style="yellow", width=9)
@@ -610,7 +658,20 @@ async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger
         orchestrator = create_orchestrator(client=enhanced_client)
         monitor.set_orchestrator(orchestrator)  # Set orchestrator reference for registry access
         
-        with Live(monitor.layout, refresh_per_second=10, console=console, vertical_overflow="visible") as live:
+        # Suppress external loggers to prevent UI interference
+        suppress_external_loggers()
+        
+        with Live(monitor.layout, refresh_per_second=3, console=console, vertical_overflow="visible") as live:
+            
+            # Background task to update timer display
+            async def timer_update_task():
+                while live.is_started:
+                    if monitor._mission_is_running:
+                        monitor.update(overall_mission_string)
+                    await asyncio.sleep(0.33)  # Update every 1/3 second
+            
+            # Start the timer update task
+            timer_task = asyncio.create_task(timer_update_task())
             
             # Define a wrapper for log_patch that has access to the live object
             def live_aware_log_patch(agent_name: str, msg: str, msg_type: str = "info"):
@@ -968,8 +1029,19 @@ async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger
         overall_log.error_message = str(e)
         sys.exit(1)
     finally:
+        # Cancel timer task if it exists
+        if 'timer_task' in locals() and not timer_task.done():
+            timer_task.cancel()
+            try:
+                await timer_task
+            except asyncio.CancelledError:
+                pass
+        
         if 'live' in locals() and live.is_started:
             live.stop()
+        
+        # Restore normal logging levels
+        restore_external_loggers()
         
         if overall_log.final_status == "started":
             overall_log.final_status = "ended_unexpectedly"

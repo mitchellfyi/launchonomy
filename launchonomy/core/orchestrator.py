@@ -1027,17 +1027,27 @@ class OrchestrationAgent(RoutedAgent):
                 }
             }
             
-            # Log cycle performance summary
-            successful = cycle_log.get("cycle_successful", False)
+            # Log cycle performance summary - calculate success based on current state
             agents_executed = list(cycle_log.get("steps", {}).keys())
             errors = cycle_log.get("errors", [])
             
+            # Calculate success: all agents executed successfully and no errors
+            successful_steps = sum(1 for step in cycle_log.get("steps", {}).values() 
+                                 if step.get("status") == "success")
+            total_expected_agents = len(["ScanAgent", "DeployAgent", "CampaignAgent", "AnalyticsAgent", "FinanceAgent", "GrowthAgent"])
+            cycle_success = (successful_steps >= total_expected_agents and len(errors) == 0)
+            
             self._log(f"📈 Cycle Performance Summary:", "info")
-            self._log(f"   • Success: {'✅' if successful else '❌'}", "info")
-            # self._log(f"   • Revenue: ${revenue:.2f}", "info")
-            # self._log(f"   • Agents executed: {len(agents_executed)}", "info")
+            self._log(f"   • Success: {'✅' if cycle_success else '❌'}", "info")
+            self._log(f"   • Agents executed: {len(agents_executed)}", "info")
             if errors:
                 self._log(f"   • Errors encountered: {len(errors)}", "warning")
+                for i, error in enumerate(errors[:3]):  # Show first 3 errors
+                    self._log(f"     {i+1}. {error}", "warning")
+                if len(errors) > 3:
+                    self._log(f"     ... and {len(errors) - 3} more errors", "warning")
+            # else:
+            #     self._log(f"   • No errors encountered", "info")
             
             # Get review input from key C-Suite agents
             for agent_name in available_csuite[:2]:  # Limit to 2 agents for review

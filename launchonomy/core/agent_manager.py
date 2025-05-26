@@ -87,6 +87,11 @@ class AgentManager:
                 # Skip self-reference to avoid circular instantiation
                 if name == "OrchestrationAgent":
                     continue
+                
+                # Skip RetrievalAgent as it has special initialization requirements
+                # and is handled directly by the orchestrator
+                if name == "RetrievalAgent":
+                    continue
                     
                 info = self.registry.get_agent_info(name)
                 if info and 'module' in info and 'class' in info:
