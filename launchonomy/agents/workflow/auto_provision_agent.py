@@ -30,9 +30,9 @@ class AutoProvisionAgent:
         # Helper for logging, assuming orchestrator might have a more complex logger setup
         log_func = getattr(logger, level, logger.info)
         log_func(f"{self.name}: {message}")
-        if hasattr(self.orchestrator, '_log') and callable(self.orchestrator._log):
+        if hasattr(self.orchestrator, '_log_to_monitor') and callable(self.orchestrator._log_to_monitor):
              # If orchestrator has a way to log to the main UI monitor
-            self.orchestrator._log(message, level)
+            self.orchestrator._log_to_monitor(message, level)
 
 
     def is_trivial(self, context: Dict, missing_item_details: Dict) -> bool:
