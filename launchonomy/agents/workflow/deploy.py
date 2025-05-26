@@ -94,6 +94,39 @@ Always prioritize features that directly contribute to getting the first paying 
             # Execute deployment steps
             deployment_result = await self._execute_deployment(architecture_plan, budget_limit)
             
+            # Check if deployment was successful before proceeding
+            if deployment_result.get("status") == "failed":
+                # Check if human assistance is required
+                if deployment_result.get("human_assistance_required"):
+                    return self._format_output(
+                        status="requires_human",
+                        data={
+                            "deployment_status": "requires_human_assistance",
+                            "error_details": deployment_result.get("message", "Deployment failed"),
+                            "required_actions": deployment_result.get("required_actions", []),
+                            "architecture": architecture_plan
+                        },
+                        human_task_description=f"Manual deployment setup required for {opportunity.get('name', 'MVP')}. Please complete the required actions and provide deployment details.",
+                        error_message=deployment_result.get("message", "Deployment failed - human assistance required")
+                    )
+                else:
+                    raise ValueError(f"Deployment failed: {deployment_result.get('message', 'Unknown deployment error')}")
+            
+            # Check if deployment requires human action but has instructions
+            if deployment_result.get("requires_human_action"):
+                return self._format_output(
+                    status="requires_human",
+                    data={
+                        "deployment_status": "ai_assisted_manual",
+                        "deployment_instructions": deployment_result.get("instructions", ""),
+                        "estimated_time": deployment_result.get("estimated_time", "Unknown"),
+                        "estimated_cost": deployment_result.get("estimated_cost", 0),
+                        "architecture": architecture_plan
+                    },
+                    human_task_description=deployment_result.get("human_task_description", "Follow deployment instructions"),
+                    cost=deployment_result.get("estimated_cost", 0)
+                )
+            
             # Set up essential integrations
             integrations_result = await self._setup_integrations(deployment_result, available_tools)
             
@@ -295,7 +328,7 @@ Always prioritize features that directly contribute to getting the first paying 
         }
     
     async def _execute_deployment(self, architecture_plan: Dict[str, Any], budget_limit: float) -> Dict[str, Any]:
-        """Execute the actual deployment process using available tools."""
+        """Execute the actual deployment process using available tools or create them if needed."""
         
         deployment_result = {}
         deployment_errors = []
@@ -314,15 +347,22 @@ Always prioritize features that directly contribute to getting the first paying 
                 if hosting_result.get("status") == "success":
                     deployment_result.update(hosting_result.get("deployment_data", {}))
                     self._log("Hosting deployment successful")
-                else:
-                    deployment_errors.append(f"Hosting deployment failed: {hosting_result.get('error', 'Unknown error')}")
+                elif hosting_result.get("status") == "error":
+                    error_msg = hosting_result.get("error", "Unknown error")
+                    deployment_errors.append(f"Hosting deployment failed: {error_msg}")
+                    self._log(f"Hosting tool failed: {error_msg}", "error")
                     
             except Exception as e:
                 deployment_errors.append(f"Hosting tool error: {str(e)}")
                 self._log(f"Error using hosting tool: {str(e)}", "error")
         else:
-            deployment_errors.append("No hosting tool available")
-            self._log("No hosting tool available for deployment", "error")
+            # No hosting tool available - try to create one or request human assistance
+            self._log("No hosting tool available. Attempting to create deployment solution.", "warning")
+            manual_deployment = await self._attempt_manual_deployment(architecture_plan, budget_limit)
+            if manual_deployment.get("status") == "success":
+                deployment_result.update(manual_deployment.get("deployment_data", {}))
+            else:
+                deployment_errors.append("No hosting tool available and manual deployment failed")
         
         # Use domain registration tool
         domain_tool = await self._get_tool_from_registry("domain_registration")
@@ -337,22 +377,33 @@ Always prioritize features that directly contribute to getting the first paying 
                 if domain_result.get("status") == "success":
                     deployment_result.update(domain_result.get("domain_data", {}))
                     self._log("Domain registration successful")
-                else:
-                    deployment_errors.append(f"Domain registration failed: {domain_result.get('error', 'Unknown error')}")
+                elif domain_result.get("status") == "error":
+                    error_msg = domain_result.get("error", "Unknown error")
+                    deployment_errors.append(f"Domain registration failed: {error_msg}")
+                    self._log(f"Domain tool failed: {error_msg}", "error")
                     
             except Exception as e:
                 deployment_errors.append(f"Domain tool error: {str(e)}")
                 self._log(f"Error using domain tool: {str(e)}", "error")
         else:
-            deployment_errors.append("No domain registration tool available")
-            self._log("No domain registration tool available", "warning")
+            # No domain tool available - provide instructions for manual setup
+            self._log("No domain registration tool available. Manual domain setup required.", "warning")
+            deployment_errors.append("Domain registration tool not available - manual setup required")
         
-        # If no tools worked, return error result
+        # If no tools worked and no manual deployment succeeded, return error result
         if not deployment_result and deployment_errors:
             return {
                 "status": "failed",
                 "errors": deployment_errors,
-                "message": "Deployment failed - no working deployment tools available"
+                "message": "Deployment failed - no working deployment tools available",
+                "human_assistance_required": True,
+                "required_actions": [
+                    "Set up hosting account (Vercel, Railway, or similar)",
+                    "Register domain name",
+                    "Configure DNS settings",
+                    "Set up SSL certificate",
+                    "Deploy application code"
+                ]
             }
         
         # Add metadata
@@ -365,15 +416,92 @@ Always prioritize features that directly contribute to getting the first paying 
         self._log("Deployment process completed")
         return deployment_result
     
+    async def _attempt_manual_deployment(self, architecture_plan: Dict[str, Any], budget_limit: float) -> Dict[str, Any]:
+        """Attempt to create deployment instructions or use AI to generate deployment code."""
+        
+        try:
+            # Use OpenAI to generate deployment instructions and code
+            import openai
+            import os
+            
+            openai_api_key = os.getenv("OPENAI_API_KEY")
+            if not openai_api_key:
+                self._log("No OpenAI API key available for AI-assisted deployment", "error")
+                return {
+                    "status": "failed",
+                    "error": "No AI assistance available - OpenAI API key not configured"
+                }
+            
+            # Create deployment prompt
+            product_type = architecture_plan.get("product_type", "web_application")
+            tech_stack = architecture_plan.get("technology_stack", {})
+            
+            prompt = f"""
+You are a deployment specialist. Create a complete deployment solution for a {product_type} with the following specifications:
+
+Technology Stack: {tech_stack}
+Budget Limit: ${budget_limit}
+
+Please provide:
+1. Step-by-step deployment instructions
+2. Recommended hosting platform and configuration
+3. Domain setup instructions
+4. SSL certificate setup
+5. Environment variables needed
+6. Deployment scripts or configuration files
+7. Cost estimates for each component
+
+Focus on free or low-cost solutions that can be deployed quickly. Provide actual URLs, commands, and configuration that can be used immediately.
+"""
+
+            # Make OpenAI API call
+            client = openai.OpenAI(api_key=openai_api_key)
+            response = client.chat.completions.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "You are a deployment expert who provides practical, actionable deployment solutions."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=2000,
+                temperature=0.3
+            )
+            
+            deployment_instructions = response.choices[0].message.content
+            
+            self._log("AI-generated deployment instructions created", "info")
+            
+            return {
+                "status": "success",
+                "deployment_data": {
+                    "deployment_type": "ai_assisted_manual",
+                    "instructions": deployment_instructions,
+                    "requires_human_action": True,
+                    "estimated_time": "30-60 minutes",
+                    "estimated_cost": min(budget_limit, 50.0)  # Conservative estimate
+                },
+                "human_task_description": f"Follow the AI-generated deployment instructions to deploy the {product_type}"
+            }
+            
+        except Exception as e:
+            self._log(f"AI-assisted deployment failed: {str(e)}", "error")
+            return {
+                "status": "failed",
+                "error": f"AI-assisted deployment failed: {str(e)}",
+                "human_task_description": "Manual deployment setup required - no automated tools available"
+            }
+    
     async def _setup_integrations(self, deployment_result: Dict[str, Any], 
                                 available_tools: Dict[str, Any]) -> Dict[str, Any]:
         """Set up essential third-party integrations."""
         
+        # Get primary URL safely with fallback
+        primary_url = deployment_result.get('primary_url', 'https://placeholder.example.com')
+        
         integrations = {
             "payment_processing": {
                 "provider": "Stripe",
-                "status": "configured",
-                "webhook_url": f"{deployment_result['primary_url']}/webhooks/stripe"
+                "status": "configured" if deployment_result.get('primary_url') else "pending_deployment",
+                "webhook_url": f"{primary_url}/webhooks/stripe"
             },
             "analytics": await self._setup_real_analytics_integration(deployment_result),
             "email_automation": {
@@ -535,7 +663,7 @@ Always prioritize features that directly contribute to getting the first paying 
         # Calculate payment processing costs if we have transaction data
         payment_costs = 0.0
         if "payment_data" in deployment_result:
-            payment_data = deployment_result["payment_data"]
+            payment_data = deployment_result.get("payment_data", {})
             payment_costs = calculate_third_party_service_cost(
                 "payment_processing", 
                 "stripe_rate", 

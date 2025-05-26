@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 # Assuming Registry is in orchestrator.registry
 # from orchestrator.registry import Registry 
@@ -91,28 +91,149 @@ class AutoProvisionAgent:
         self._log(f"'{item_name}' NOT considered trivial.", "info")
         return False
 
-    def generate_stub_spec(self, item_name: str, item_type: str, context: Optional[Dict] = None) -> Dict:
+    async def generate_real_tool_spec(self, item_name: str, item_type: str, context: Optional[Dict] = None) -> Dict:
         """
-        Generates a minimal stub specification for a new tool or agent.
+        Generates a real tool specification using AI assistance to create functional tools.
         
         :param item_name: Name of the tool/agent.
         :param item_type: "tool" or "agent".
-        :param context: Optional context that might influence the stub.
+        :param context: Optional context that might influence the tool creation.
         :return: A dictionary representing the item's specification.
         """
-        self._log(f"Generating stub spec for {item_type} '{item_name}'.", "info")
+        self._log(f"Generating real tool spec for {item_type} '{item_name}'.", "info")
+        
         if item_type == "tool":
-            # For tools, create an n8n/webhook like skeleton
+            try:
+                # Use OpenAI to generate real tool implementation
+                import openai
+                import os
+                
+                openai_api_key = os.getenv("OPENAI_API_KEY")
+                if not openai_api_key:
+                    self._log("No OpenAI API key available for AI-assisted tool creation", "error")
+                    return self._generate_fallback_stub(item_name, item_type)
+                
+                # Create tool generation prompt
+                prompt = f"""
+You are a tool creation specialist. Create a complete, functional tool specification for "{item_name}".
+
+Context: {context or 'General business automation tool'}
+
+Please provide a JSON specification that includes:
+1. A clear description of what the tool does
+2. Real API endpoints or service integrations (use actual services like Zapier, IFTTT, or direct APIs)
+3. Proper authentication configuration
+4. Detailed request and response schemas
+5. Error handling specifications
+6. Real-world usage examples
+
+For hosting tools: Use services like Vercel, Railway, Netlify, Heroku
+For domain tools: Use services like Namecheap, GoDaddy, Cloudflare
+For payment tools: Use Stripe, PayPal APIs
+For analytics tools: Use Google Analytics, Mixpanel APIs
+For email tools: Use SendGrid, Mailchimp APIs
+
+The tool should be immediately usable with real API credentials. Provide actual endpoint URLs and authentication methods.
+
+Return only valid JSON in this format:
+{{
+    "description": "Detailed description of the tool's functionality",
+    "type": "webhook",
+    "endpoint_details": {{
+        "url": "https://actual-service-url.com/api/endpoint",
+        "method": "POST"
+    }},
+    "authentication": {{
+        "type": "api_key|bearer|oauth2",
+        "required_credentials": ["api_key", "secret_key"],
+        "setup_instructions": "How to get API credentials"
+    }},
+    "request_schema": {{
+        "type": "object",
+        "properties": {{ ... }},
+        "required": [...]
+    }},
+    "response_schema": {{
+        "type": "object", 
+        "properties": {{ ... }}
+    }},
+    "error_handling": {{
+        "common_errors": {{ ... }},
+        "retry_logic": "..."
+    }},
+    "usage_examples": [
+        {{
+            "description": "Example usage",
+            "request": {{ ... }},
+            "expected_response": {{ ... }}
+        }}
+    ],
+    "cost_estimate": "Free tier available / $X per month",
+    "setup_time": "X minutes",
+    "source": "ai-generated-real"
+}}
+"""
+
+                # Make OpenAI API call
+                client = openai.OpenAI(api_key=openai_api_key)
+                response = client.chat.completions.create(
+                    model="gpt-4",
+                    messages=[
+                        {"role": "system", "content": "You are a tool creation expert who provides real, functional tool specifications with actual API integrations."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    max_tokens=2000,
+                    temperature=0.3
+                )
+                
+                tool_spec_text = response.choices[0].message.content
+                
+                # Parse the JSON response
+                import json
+                try:
+                    tool_spec = json.loads(tool_spec_text)
+                    tool_spec["source"] = "ai-generated-real"
+                    self._log(f"AI-generated real tool spec created for '{item_name}'", "info")
+                    return tool_spec
+                except json.JSONDecodeError as e:
+                    self._log(f"Failed to parse AI-generated tool spec: {e}", "error")
+                    return self._generate_fallback_stub(item_name, item_type)
+                    
+            except Exception as e:
+                self._log(f"AI-assisted tool creation failed: {str(e)}", "error")
+                return self._generate_fallback_stub(item_name, item_type)
+                
+        elif item_type == "agent":
+            # For agents, create a real agent specification
+            return {
+                "description": f"AI-generated agent for {item_name}",
+                "capabilities": self._determine_agent_capabilities(item_name, context),
+                "tools_required": self._determine_required_tools(item_name, context),
+                "config": {
+                    "model": "gpt-4",
+                    "temperature": 0.7,
+                    "max_tokens": 1000
+                },
+                "source": "ai-generated-real"
+            }
+        else:
+            self._log(f"Unknown item type for real spec generation: {item_type}", "error")
+            raise ValueError(f"Unknown item type for real spec generation: {item_type}")
+    
+    def _generate_fallback_stub(self, item_name: str, item_type: str) -> Dict:
+        """Generate a basic stub when AI generation fails."""
+        self._log(f"Generating fallback stub for {item_type} '{item_name}'.", "warning")
+        if item_type == "tool":
             sanitized_name = item_name.lower().replace(" ", "_").replace("-", "_")
             return {
-                "description": f"Auto-provisioned stub for tool: {item_name}",
-                "type": "webhook", # Defaulting to webhook type
+                "description": f"Fallback stub for tool: {item_name} - requires manual configuration",
+                "type": "webhook",
                 "endpoint_details": {
-                    "url": f"http://localhost:5678/webhook-test/{sanitized_name}-placeholder", # n8n-like placeholder
+                    "url": f"http://localhost:5678/webhook-test/{sanitized_name}-placeholder",
                     "method": "POST"
                 },
-                "authentication": {"type": "none"}, # Placeholder auth
-                "request_schema": { # Basic request schema
+                "authentication": {"type": "none"},
+                "request_schema": {
                     "type": "object",
                     "properties": {
                         "task_description": {"type": "string"},
@@ -120,14 +241,15 @@ class AutoProvisionAgent:
                     },
                     "required": ["task_description"]
                 },
-                "response_schema": { # Basic response schema
+                "response_schema": {
                     "type": "object",
                     "properties": {
                         "status": {"type": "string"},
                         "result": {"type": "object"}
                     }
                 },
-                "source": "auto-provisioned"
+                "source": "fallback-stub",
+                "requires_manual_setup": True
             }
         elif item_type == "agent":
             # For agents, a minimal spec
@@ -139,8 +261,44 @@ class AutoProvisionAgent:
                 "source": "auto-provisioned"
             }
         else:
-            self._log(f"Unknown item type for stub spec generation: {item_type}", "error")
-            raise ValueError(f"Unknown item type for stub spec generation: {item_type}")
+            self._log(f"Unknown item type for fallback stub generation: {item_type}", "error")
+            raise ValueError(f"Unknown item type for fallback stub generation: {item_type}")
+    
+    def _determine_agent_capabilities(self, agent_name: str, context: Optional[Dict] = None) -> List[str]:
+        """Determine capabilities for an AI-generated agent."""
+        name_lower = agent_name.lower()
+        capabilities = ["general_task_execution"]
+        
+        if "research" in name_lower:
+            capabilities.extend(["web_search", "data_analysis", "report_generation"])
+        elif "marketing" in name_lower:
+            capabilities.extend(["campaign_creation", "content_generation", "analytics"])
+        elif "sales" in name_lower:
+            capabilities.extend(["lead_generation", "crm_integration", "email_automation"])
+        elif "support" in name_lower:
+            capabilities.extend(["customer_service", "ticket_management", "knowledge_base"])
+        elif "dev" in name_lower or "development" in name_lower:
+            capabilities.extend(["code_generation", "testing", "deployment"])
+        
+        return capabilities
+    
+    def _determine_required_tools(self, agent_name: str, context: Optional[Dict] = None) -> List[str]:
+        """Determine required tools for an AI-generated agent."""
+        name_lower = agent_name.lower()
+        tools = []
+        
+        if "research" in name_lower:
+            tools.extend(["web_search", "data_analysis", "spreadsheet"])
+        elif "marketing" in name_lower:
+            tools.extend(["social_media", "email_automation", "analytics"])
+        elif "sales" in name_lower:
+            tools.extend(["crm", "email_automation", "payment_processing"])
+        elif "support" in name_lower:
+            tools.extend(["ticketing_system", "knowledge_base", "email"])
+        elif "dev" in name_lower:
+            tools.extend(["code_repository", "hosting", "testing_framework"])
+        
+        return tools
 
     async def handle_trivial_request(self, context: Dict, missing_item_details: Dict) -> Optional[str]:
         """
@@ -159,12 +317,13 @@ class AutoProvisionAgent:
         if not self.is_trivial(context, missing_item_details):
             return None
 
-        stub_spec = self.generate_stub_spec(item_name, item_type, context)
+        # Generate real tool specification using AI
+        real_spec = await self.generate_real_tool_spec(item_name, item_type, context)
         
         proposal = {
             "type": f"add_{item_type}", # e.g., "add_tool" or "add_agent"
             "name": item_name,
-            "spec": stub_spec
+            "spec": real_spec
         }
         
         if item_type == "agent":
@@ -198,7 +357,7 @@ class AutoProvisionAgent:
                 # For agents, also create the actual RoutedAgent instance
                 if item_type == "agent" and hasattr(self.coa, '_create_agent'):
                     try:
-                        agent_spec = stub_spec
+                        agent_spec = real_spec
                         persona = agent_spec.get("description", f"Auto-provisioned agent for {item_name}")
                         primer = f"You are {item_name}. {persona}\nYour capabilities include: {', '.join(agent_spec.get('capabilities', []))}"
                         

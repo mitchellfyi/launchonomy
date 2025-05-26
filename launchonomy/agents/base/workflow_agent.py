@@ -1,5 +1,6 @@
 import json
 import logging
+import asyncio
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
 from datetime import datetime
@@ -127,43 +128,116 @@ class BaseWorkflowAgent(ABC):
         return None
     
     async def _execute_tool(self, tool_spec: Dict[str, Any], parameters: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute a tool with the given parameters."""
+        """Execute a tool with the given parameters by making real API calls."""
         if not tool_spec:
             return {"status": "error", "error": "No tool specification provided"}
         
         try:
-            # For now, return a mock successful response since we don't have real tool implementations
-            # In a real system, this would make HTTP requests to the tool endpoints
             tool_name = tool_spec.get("description", "Unknown Tool")
-            self._log(f"Executing tool: {tool_name}", "debug")
+            self._log(f"Executing real tool: {tool_name}", "info")
             
-            # Simulate tool execution based on tool type
-            if "webhook" in tool_spec.get("type", ""):
-                # Simulate webhook call
-                return {
-                    "status": "success",
-                    "result": {
-                        "message": f"Tool executed successfully",
-                        "parameters_received": parameters,
-                        "tool_type": tool_spec.get("type", "unknown")
-                    },
-                    "tool_name": tool_name
-                }
-            else:
-                # Generic tool execution
-                return {
-                    "status": "success", 
-                    "result": {
-                        "message": f"Tool {tool_name} executed",
-                        "data": parameters
+            # Check if this is a webhook-based tool
+            if tool_spec.get("type") == "webhook":
+                endpoint_details = tool_spec.get("endpoint_details", {})
+                url = endpoint_details.get("url")
+                method = endpoint_details.get("method", "POST")
+                
+                if not url:
+                    return {"status": "error", "error": "No webhook URL specified in tool spec"}
+                
+                # Make real HTTP request to the tool endpoint
+                import aiohttp
+                import json as json_lib
+                
+                async with aiohttp.ClientSession() as session:
+                    headers = {"Content-Type": "application/json"}
+                    
+                    # Add authentication if specified
+                    auth_config = tool_spec.get("authentication", {})
+                    if auth_config.get("type") == "bearer":
+                        token = auth_config.get("token")
+                        if token:
+                            headers["Authorization"] = f"Bearer {token}"
+                    elif auth_config.get("type") == "api_key":
+                        api_key = auth_config.get("api_key")
+                        key_header = auth_config.get("header_name", "X-API-Key")
+                        if api_key:
+                            headers[key_header] = api_key
+                    
+                    # Prepare request payload
+                    payload = {
+                        "task_description": f"Execute {tool_name}",
+                        "data": parameters,
+                        "agent_name": self.name,
+                        "timestamp": datetime.now().isoformat()
                     }
+                    
+                    try:
+                        if method.upper() == "POST":
+                            async with session.post(url, json=payload, headers=headers, timeout=30) as response:
+                                if response.status == 200:
+                                    result = await response.json()
+                                    self._log(f"Tool {tool_name} executed successfully", "info")
+                                    return result
+                                else:
+                                    error_text = await response.text()
+                                    self._log(f"Tool {tool_name} returned status {response.status}: {error_text}", "error")
+                                    return {
+                                        "status": "error",
+                                        "error": f"HTTP {response.status}: {error_text}",
+                                        "tool_name": tool_name
+                                    }
+                        elif method.upper() == "GET":
+                            async with session.get(url, params=payload, headers=headers, timeout=30) as response:
+                                if response.status == 200:
+                                    result = await response.json()
+                                    self._log(f"Tool {tool_name} executed successfully", "info")
+                                    return result
+                                else:
+                                    error_text = await response.text()
+                                    self._log(f"Tool {tool_name} returned status {response.status}: {error_text}", "error")
+                                    return {
+                                        "status": "error",
+                                        "error": f"HTTP {response.status}: {error_text}",
+                                        "tool_name": tool_name
+                                    }
+                        else:
+                            return {
+                                "status": "error",
+                                "error": f"Unsupported HTTP method: {method}",
+                                "tool_name": tool_name
+                            }
+                            
+                    except asyncio.TimeoutError:
+                        self._log(f"Tool {tool_name} timed out", "error")
+                        return {
+                            "status": "error",
+                            "error": "Request timed out",
+                            "tool_name": tool_name
+                        }
+                    except Exception as e:
+                        self._log(f"Tool {tool_name} connection error: {str(e)}", "error")
+                        return {
+                            "status": "error",
+                            "error": f"Connection error: {str(e)}",
+                            "tool_name": tool_name
+                        }
+            else:
+                # For non-webhook tools, we need to implement specific logic
+                # This should not happen if tools are properly configured as webhooks
+                self._log(f"Tool {tool_name} is not a webhook tool. Tool type: {tool_spec.get('type')}", "error")
+                return {
+                    "status": "error",
+                    "error": f"Tool type '{tool_spec.get('type')}' not supported. Only webhook tools are supported.",
+                    "tool_name": tool_name
                 }
                 
         except Exception as e:
-            self._log(f"Error executing tool: {str(e)}", "error")
+            self._log(f"Error executing tool {tool_name}: {str(e)}", "error")
             return {
                 "status": "error",
-                "error": str(e)
+                "error": str(e),
+                "tool_name": tool_name
             }
     
     def _format_output(self, status: str, data: Dict[str, Any], **kwargs) -> WorkflowOutput:
