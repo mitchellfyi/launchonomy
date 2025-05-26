@@ -142,6 +142,28 @@ Mission logs are saved as JSON files with parameterized names:
 mission_logs/mission_20250526_005050_test_reorganized_codebase.json
 ```
 
+## 📚 Documentation
+
+### Core Documentation
+
+- **[📖 AutoGen Architecture Guide](AUTOGEN_ARCHITECTURE.md)** - Comprehensive guide explaining our strategic hybrid approach with Microsoft AutoGen v0.4
+- **[⚡ AutoGen Quick Reference](AUTOGEN_QUICK_REFERENCE.md)** - Developer quick reference for working with our AutoGen integration
+- **[🎯 Mission Lifecycle Guide](MISSION_LIFECYCLE.md)** - Complete guide to how missions work from start to finish
+- **[🛠️ Development Guide](DEVELOPMENT_GUIDE.md)** - Comprehensive guide for developers contributing to Launchonomy
+- **[🚨 Troubleshooting Guide](TROUBLESHOOTING.md)** - Solutions to common issues and debugging procedures
+
+### AutoGen Integration Architecture
+
+Launchonomy uses a strategic hybrid approach with Microsoft AutoGen v0.4:
+
+**Key Architectural Decisions:**
+- ✅ **Use AutoGen for Infrastructure** - Model clients, message handling, base agents
+- ✅ **Build Custom for Business Logic** - C-Suite orchestration, mission management, workflows  
+- ✅ **Maintain Clear Separation** - Technical foundation vs. business intelligence
+- ✅ **Future-Proof Design** - Can adopt new AutoGen features selectively
+
+This hybrid approach gives us the technical robustness of AutoGen with the business intelligence of custom domain-specific logic.
+
 ## 🤖 Agents & Tools Reference
 
 ### Core Orchestration
