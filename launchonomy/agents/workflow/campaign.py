@@ -494,53 +494,62 @@ Always prioritize getting the first paying customer, then focus on scalable, pro
     async def _execute_single_channel_campaign(self, channel_name: str, budget: float,
                                              campaign_strategy: Dict[str, Any],
                                              available_tools: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute campaign for a single channel."""
+        """Execute campaign for a single channel using available tools."""
         
-        # Simulate campaign execution (in real implementation, this would use actual tools)
-        campaign_configs = {
-            "email_marketing": {
-                "estimated_reach": int(budget * 50),  # $1 per 50 emails
-                "estimated_impressions": int(budget * 50),
-                "campaign_type": "drip_sequence",
-                "automation": "active"
-            },
-            "social_media": {
-                "estimated_reach": int(budget * 100),  # $1 per 100 social impressions
-                "estimated_impressions": int(budget * 200),
-                "campaign_type": "organic_posts_with_boost",
-                "automation": "scheduled"
-            },
-            "paid_advertising": {
-                "estimated_reach": int(budget * 20),  # $1 per 20 targeted impressions
-                "estimated_impressions": int(budget * 20),
-                "campaign_type": "targeted_ads",
-                "automation": "bid_optimization"
-            },
-            "content_marketing": {
-                "estimated_reach": int(budget * 75),  # $1 per 75 content views
-                "estimated_impressions": int(budget * 150),
-                "campaign_type": "blog_and_seo",
-                "automation": "publishing_schedule"
+        # Use the appropriate tool for the channel
+        if channel_name in available_tools:
+            tool_spec = available_tools[channel_name]
+            
+            try:
+                tool_result = await self._execute_tool(tool_spec, {
+                    "action": "launch_campaign",
+                    "budget": budget,
+                    "campaign_strategy": campaign_strategy,
+                    "channel_config": campaign_strategy.get("channel_strategy", {}).get(channel_name, {}),
+                    "messaging": campaign_strategy.get("messaging_strategy", {}),
+                    "target_audience": campaign_strategy.get("target_audience", {}),
+                    "timeline": campaign_strategy.get("timeline", {})
+                })
+                
+                if tool_result.get("status") == "success":
+                    result = tool_result.get("campaign_data", {})
+                    result.update({
+                        "channel": channel_name,
+                        "budget_allocated": budget,
+                        "status": "active",
+                        "launch_timestamp": self._get_launchonomy_context()["timestamp"],
+                        "tool_used": channel_name
+                    })
+                    self._log(f"Successfully launched {channel_name} campaign with ${budget} budget using {channel_name} tool")
+                    return result
+                else:
+                    self._log(f"Failed to launch {channel_name} campaign: {tool_result.get('error', 'Unknown error')}", "error")
+                    return {
+                        "channel": channel_name,
+                        "budget_allocated": budget,
+                        "status": "failed",
+                        "error": tool_result.get("error", "Campaign launch failed"),
+                        "launch_timestamp": self._get_launchonomy_context()["timestamp"]
+                    }
+                    
+            except Exception as e:
+                self._log(f"Error executing {channel_name} campaign: {str(e)}", "error")
+                return {
+                    "channel": channel_name,
+                    "budget_allocated": budget,
+                    "status": "error",
+                    "error": f"Tool execution error: {str(e)}",
+                    "launch_timestamp": self._get_launchonomy_context()["timestamp"]
+                }
+        else:
+            self._log(f"No tool available for {channel_name} channel", "warning")
+            return {
+                "channel": channel_name,
+                "budget_allocated": budget,
+                "status": "skipped",
+                "error": f"No {channel_name} tool available",
+                "launch_timestamp": self._get_launchonomy_context()["timestamp"]
             }
-        }
-        
-        config = campaign_configs.get(channel_name, {
-            "estimated_reach": int(budget * 30),
-            "estimated_impressions": int(budget * 60),
-            "campaign_type": "general_outreach",
-            "automation": "basic"
-        })
-        
-        result = {
-            "channel": channel_name,
-            "budget_allocated": budget,
-            "status": "active",
-            "launch_timestamp": self._get_launchonomy_context()["timestamp"],
-            **config
-        }
-        
-        self._log(f"Launched {channel_name} campaign with ${budget} budget")
-        return result
     
     async def _setup_campaign_monitoring(self, campaign_results: Dict[str, Any]) -> Dict[str, Any]:
         """Set up monitoring and automation for launched campaigns."""
@@ -564,25 +573,46 @@ Always prioritize getting the first paying customer, then focus on scalable, pro
         return monitoring_config
     
     async def _calculate_campaign_performance(self, campaign_results: Dict[str, Any]) -> Dict[str, Any]:
-        """Calculate initial campaign performance metrics."""
+        """Calculate campaign performance metrics from actual campaign data."""
         
-        total_budget = sum(c.get("budget_allocated", 0) for c in campaign_results.get("campaigns_launched", []))
-        total_reach = campaign_results.get("total_reach", 0)
-        total_impressions = campaign_results.get("estimated_impressions", 0)
+        campaigns = campaign_results.get("campaigns_launched", [])
+        total_budget = sum(c.get("budget_allocated", 0) for c in campaigns)
         
-        # Simulate initial performance (in real implementation, this would come from actual tracking)
-        estimated_clicks = int(total_impressions * 0.02)  # 2% CTR
-        estimated_conversions = max(1, int(estimated_clicks * 0.05))  # 5% conversion rate
+        # Aggregate actual performance data from campaigns
+        total_reach = 0
+        total_impressions = 0
+        total_clicks = 0
+        total_conversions = 0
+        
+        for campaign in campaigns:
+            if campaign.get("status") == "active":
+                # Get actual metrics from campaign data
+                total_reach += campaign.get("actual_reach", campaign.get("estimated_reach", 0))
+                total_impressions += campaign.get("actual_impressions", campaign.get("estimated_impressions", 0))
+                total_clicks += campaign.get("actual_clicks", campaign.get("estimated_clicks", 0))
+                total_conversions += campaign.get("actual_conversions", campaign.get("estimated_conversions", 0))
+        
+        # Calculate performance metrics
+        ctr = (total_clicks / total_impressions) if total_impressions > 0 else 0
+        conversion_rate = (total_conversions / total_clicks) if total_clicks > 0 else 0
+        cpa = (total_budget / total_conversions) if total_conversions > 0 else total_budget
+        
+        # Estimate revenue (assuming $50 average order value)
+        estimated_revenue = total_conversions * 50
+        roi = ((estimated_revenue - total_budget) / total_budget) if total_budget > 0 else 0
         
         performance = {
             "total_budget_spent": total_budget,
             "total_reach": total_reach,
             "total_impressions": total_impressions,
-            "estimated_clicks": estimated_clicks,
-            "estimated_conversions": estimated_conversions,
-            "estimated_cpa": total_budget / estimated_conversions if estimated_conversions > 0 else total_budget,
-            "estimated_roi": (estimated_conversions * 50 - total_budget) / total_budget if total_budget > 0 else 0,
-            "performance_score": min(100, (estimated_conversions / max(1, total_budget / 25)) * 100)
+            "total_clicks": total_clicks,
+            "total_conversions": total_conversions,
+            "click_through_rate": ctr,
+            "conversion_rate": conversion_rate,
+            "cost_per_acquisition": cpa,
+            "estimated_revenue": estimated_revenue,
+            "return_on_investment": roi,
+            "performance_score": min(100, max(0, roi * 50 + 50))  # Scale ROI to 0-100 score
         }
         
         return performance
@@ -610,26 +640,80 @@ Always prioritize getting the first paying customer, then focus on scalable, pro
         }
     
     async def _analyze_campaign_performance(self) -> Dict[str, Any]:
-        """Analyze performance of all active campaigns."""
+        """Analyze performance of all active campaigns using actual data."""
         
         if not self.active_campaigns:
             return {"error": "No active campaigns to analyze"}
         
-        # Simulate performance analysis (in real implementation, this would use actual analytics)
+        # Collect actual performance data from active campaigns
+        total_campaigns = len(self.active_campaigns)
+        high_performers = []
+        underperformers = []
+        channel_performance = {}
+        total_conversions = 0
+        total_spend = 0
+        total_revenue = 0
+        
+        for campaign_id, campaign_data in self.active_campaigns.items():
+            if campaign_data.get("status") == "active":
+                conversions = campaign_data.get("actual_conversions", 0)
+                spend = campaign_data.get("budget_allocated", 0)
+                revenue = conversions * 50  # Assuming $50 AOV
+                roi = ((revenue - spend) / spend) if spend > 0 else 0
+                cpa = (spend / conversions) if conversions > 0 else spend
+                
+                # Categorize performance
+                if roi > 2.0:  # ROI > 200%
+                    high_performers.append({
+                        "campaign_id": campaign_id,
+                        "channel": campaign_data.get("channel", "unknown"),
+                        "roi": roi,
+                        "cpa": cpa,
+                        "conversions": conversions
+                    })
+                elif roi < 1.0:  # ROI < 100%
+                    underperformers.append({
+                        "campaign_id": campaign_id,
+                        "channel": campaign_data.get("channel", "unknown"),
+                        "roi": roi,
+                        "cpa": cpa,
+                        "conversions": conversions
+                    })
+                
+                # Aggregate channel performance
+                channel = campaign_data.get("channel", "unknown")
+                if channel not in channel_performance:
+                    channel_performance[channel] = {"cpa": 0, "roi": 0, "conversions": 0, "campaigns": 0}
+                
+                channel_performance[channel]["cpa"] += cpa
+                channel_performance[channel]["roi"] += roi
+                channel_performance[channel]["conversions"] += conversions
+                channel_performance[channel]["campaigns"] += 1
+                
+                total_conversions += conversions
+                total_spend += spend
+                total_revenue += revenue
+        
+        # Calculate averages for channels
+        for channel in channel_performance:
+            campaigns_count = channel_performance[channel]["campaigns"]
+            if campaigns_count > 0:
+                channel_performance[channel]["cpa"] /= campaigns_count
+                channel_performance[channel]["roi"] /= campaigns_count
+        
         analysis = {
-            "total_campaigns": len(self.active_campaigns),
+            "total_campaigns": total_campaigns,
             "performance_summary": {
-                "high_performers": [],
-                "underperformers": [],
-                "average_cpa": 25.0,
-                "average_roi": 2.5,
-                "total_conversions": 3
+                "high_performers": high_performers,
+                "underperformers": underperformers,
+                "average_cpa": (total_spend / total_conversions) if total_conversions > 0 else 0,
+                "average_roi": ((total_revenue - total_spend) / total_spend) if total_spend > 0 else 0,
+                "total_conversions": total_conversions,
+                "total_spend": total_spend,
+                "total_revenue": total_revenue
             },
-            "channel_performance": {
-                "email_marketing": {"cpa": 20.0, "roi": 3.0, "conversions": 2},
-                "social_media": {"cpa": 30.0, "roi": 2.0, "conversions": 1}
-            },
-            "optimization_opportunities": []
+            "channel_performance": channel_performance,
+            "data_source": "actual_campaign_data"
         }
         
         return analysis
@@ -688,10 +772,44 @@ Always prioritize getting the first paying customer, then focus on scalable, pro
         
         # Update active campaigns with optimization results
         updated_count = 0
+        optimization_errors = []
+        
         for campaign_id in self.active_campaigns:
-            # Simulate configuration updates
-            self.active_campaigns[campaign_id]["last_optimized"] = self._get_launchonomy_context()["timestamp"]
-            updated_count += 1
+            try:
+                campaign_data = self.active_campaigns[campaign_id]
+                channel = campaign_data.get("channel")
+                
+                # Apply optimizations based on results
+                for optimization in optimization_results.get("optimizations_executed", []):
+                    if optimization["optimization_type"] == "budget_reallocation":
+                        # Update budget allocation if this campaign is affected
+                        if campaign_data.get("roi", 0) > 2.0:  # High performer
+                            campaign_data["budget_allocated"] *= 1.2  # Increase budget by 20%
+                        elif campaign_data.get("roi", 0) < 1.0:  # Underperformer
+                            campaign_data["budget_allocated"] *= 0.8  # Decrease budget by 20%
+                    
+                    elif optimization["optimization_type"] == "audience_refinement":
+                        # Update targeting parameters
+                        campaign_data["targeting_refined"] = True
+                        campaign_data["audience_segments"] = "high_converting_only"
+                    
+                    elif optimization["optimization_type"] == "message_optimization":
+                        # Mark for A/B testing
+                        campaign_data["ab_testing_enabled"] = True
+                        campaign_data["message_variants"] = 2
+                
+                # Update metadata
+                campaign_data["last_optimized"] = self._get_launchonomy_context()["timestamp"]
+                campaign_data["optimization_version"] = campaign_data.get("optimization_version", 0) + 1
+                
+                updated_count += 1
+                
+            except Exception as e:
+                optimization_errors.append({
+                    "campaign_id": campaign_id,
+                    "error": str(e)
+                })
+                self._log(f"Error updating campaign {campaign_id}: {str(e)}", "error")
         
         return {
             "campaigns_updated": updated_count,

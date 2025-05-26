@@ -191,7 +191,7 @@ Always provide actionable insights that enable data-driven autonomous decisions.
                                  available_tools: Dict[str, Any]) -> Dict[str, Any]:
         """Collect raw metrics data from various sources."""
         
-        # Simulate data collection from various sources
+        # Collect data from available analytics tools
         # In real implementation, this would call actual analytics APIs
         
         raw_data = {
@@ -213,40 +213,202 @@ Always provide actionable insights that enable data-driven autonomous decisions.
         return raw_data
     
     async def _collect_revenue_metrics(self, time_period: str, available_tools: Dict[str, Any]) -> Dict[str, Any]:
-        """Collect revenue and financial metrics."""
+        """Collect revenue and financial metrics using available tools."""
         
-        # Simulate revenue data collection
-        base_revenue = 1250.0  # Simulated current revenue
+        revenue_data = {}
         
-        return {
-            "total_revenue": base_revenue,
-            "monthly_recurring_revenue": base_revenue * 0.8,  # 80% is recurring
-            "one_time_revenue": base_revenue * 0.2,
-            "revenue_growth_rate": 0.15,  # 15% growth
-            "average_order_value": 49.99,
-            "total_transactions": int(base_revenue / 49.99),
-            "refunds": base_revenue * 0.02,  # 2% refund rate
-            "net_revenue": base_revenue * 0.98,
-            "payment_processing_fees": base_revenue * 0.029,  # 2.9% Stripe fees
-            "collection_source": "stripe_analytics" if "stripe_analytics" in available_tools else "simulated"
-        }
+        # Try to collect from Stripe analytics first
+        if "stripe_analytics" in available_tools:
+            stripe_data = await self._collect_from_stripe(time_period, available_tools["stripe_analytics"])
+            revenue_data.update(stripe_data)
+            revenue_data["collection_source"] = "stripe_analytics"
+        
+        # Try payment processor tools
+        elif "payment_processor" in available_tools:
+            payment_data = await self._collect_from_payment_processor(time_period, available_tools["payment_processor"])
+            revenue_data.update(payment_data)
+            revenue_data["collection_source"] = "payment_processor"
+        
+        # Try database analytics
+        elif "database_analytics" in available_tools:
+            db_data = await self._collect_from_database(time_period, available_tools["database_analytics"])
+            revenue_data.update(db_data)
+            revenue_data["collection_source"] = "database_analytics"
+        
+        # If no tools available, return empty data with error
+        else:
+            self._log("No revenue collection tools available", "warning")
+            return {
+                "total_revenue": 0.0,
+                "monthly_recurring_revenue": 0.0,
+                "one_time_revenue": 0.0,
+                "revenue_growth_rate": 0.0,
+                "average_order_value": 0.0,
+                "total_transactions": 0,
+                "refunds": 0.0,
+                "net_revenue": 0.0,
+                "payment_processing_fees": 0.0,
+                "collection_source": "no_tools_available",
+                "error": "No revenue collection tools available"
+            }
+        
+        return revenue_data
+    
+    async def _collect_from_stripe(self, time_period: str, tool_spec: Dict[str, Any]) -> Dict[str, Any]:
+        """Collect revenue data from Stripe analytics tool."""
+        try:
+            # Use the tool to collect actual Stripe data
+            tool_result = await self._execute_tool(tool_spec, {
+                "action": "get_revenue_metrics",
+                "time_period": time_period,
+                "metrics": ["total_revenue", "mrr", "transactions", "refunds", "fees"]
+            })
+            
+            if tool_result.get("status") == "success":
+                return tool_result.get("data", {})
+            else:
+                self._log(f"Stripe tool failed: {tool_result.get('error', 'Unknown error')}", "error")
+                return {"error": "Stripe data collection failed"}
+                
+        except Exception as e:
+            self._log(f"Error collecting from Stripe: {str(e)}", "error")
+            return {"error": f"Stripe collection error: {str(e)}"}
+    
+    async def _collect_from_payment_processor(self, time_period: str, tool_spec: Dict[str, Any]) -> Dict[str, Any]:
+        """Collect revenue data from payment processor tool."""
+        try:
+            tool_result = await self._execute_tool(tool_spec, {
+                "action": "get_payment_metrics",
+                "time_period": time_period,
+                "include": ["revenue", "transactions", "fees", "refunds"]
+            })
+            
+            if tool_result.get("status") == "success":
+                return tool_result.get("data", {})
+            else:
+                self._log(f"Payment processor tool failed: {tool_result.get('error', 'Unknown error')}", "error")
+                return {"error": "Payment processor data collection failed"}
+                
+        except Exception as e:
+            self._log(f"Error collecting from payment processor: {str(e)}", "error")
+            return {"error": f"Payment processor collection error: {str(e)}"}
+    
+    async def _collect_from_database(self, time_period: str, tool_spec: Dict[str, Any]) -> Dict[str, Any]:
+        """Collect revenue data from database analytics tool."""
+        try:
+            tool_result = await self._execute_tool(tool_spec, {
+                "query_type": "revenue_metrics",
+                "time_period": time_period,
+                "tables": ["orders", "payments", "refunds", "subscriptions"]
+            })
+            
+            if tool_result.get("status") == "success":
+                return tool_result.get("data", {})
+            else:
+                self._log(f"Database tool failed: {tool_result.get('error', 'Unknown error')}", "error")
+                return {"error": "Database data collection failed"}
+                
+        except Exception as e:
+            self._log(f"Error collecting from database: {str(e)}", "error")
+            return {"error": f"Database collection error: {str(e)}"}
     
     async def _collect_customer_metrics(self, time_period: str, available_tools: Dict[str, Any]) -> Dict[str, Any]:
-        """Collect customer acquisition and behavior metrics."""
+        """Collect customer acquisition and behavior metrics using available tools."""
         
+        # Try Google Analytics first
+        if "google_analytics" in available_tools:
+            ga_data = await self._collect_from_google_analytics(time_period, available_tools["google_analytics"])
+            if "error" not in ga_data:
+                ga_data["collection_source"] = "google_analytics"
+                return ga_data
+        
+        # Try CRM analytics
+        if "crm_analytics" in available_tools:
+            crm_data = await self._collect_from_crm(time_period, available_tools["crm_analytics"])
+            if "error" not in crm_data:
+                crm_data["collection_source"] = "crm_analytics"
+                return crm_data
+        
+        # Try database analytics
+        if "database_analytics" in available_tools:
+            db_data = await self._collect_customer_data_from_database(time_period, available_tools["database_analytics"])
+            if "error" not in db_data:
+                db_data["collection_source"] = "database_analytics"
+                return db_data
+        
+        # No tools available
+        self._log("No customer metrics collection tools available", "warning")
         return {
-            "total_customers": 47,
-            "new_customers": 12,
-            "returning_customers": 35,
-            "customer_acquisition_cost": 28.50,
-            "customer_lifetime_value": 149.97,
-            "churn_rate": 0.04,  # 4% monthly churn
-            "retention_rate": 0.96,
-            "conversion_rate": 0.032,  # 3.2% conversion rate
-            "signup_to_paid_conversion": 0.15,  # 15% of signups become paid
-            "trial_to_paid_conversion": 0.25,  # 25% of trials convert
-            "collection_source": "analytics_platform"
+            "total_customers": 0,
+            "new_customers": 0,
+            "returning_customers": 0,
+            "customer_acquisition_cost": 0.0,
+            "customer_lifetime_value": 0.0,
+            "churn_rate": 0.0,
+            "retention_rate": 0.0,
+            "conversion_rate": 0.0,
+            "signup_to_paid_conversion": 0.0,
+            "trial_to_paid_conversion": 0.0,
+            "collection_source": "no_tools_available",
+            "error": "No customer metrics collection tools available"
         }
+    
+    async def _collect_from_google_analytics(self, time_period: str, tool_spec: Dict[str, Any]) -> Dict[str, Any]:
+        """Collect customer data from Google Analytics tool."""
+        try:
+            tool_result = await self._execute_tool(tool_spec, {
+                "action": "get_customer_metrics",
+                "time_period": time_period,
+                "metrics": ["users", "new_users", "returning_users", "conversions", "conversion_rate"]
+            })
+            
+            if tool_result.get("status") == "success":
+                return tool_result.get("data", {})
+            else:
+                self._log(f"Google Analytics tool failed: {tool_result.get('error', 'Unknown error')}", "error")
+                return {"error": "Google Analytics data collection failed"}
+                
+        except Exception as e:
+            self._log(f"Error collecting from Google Analytics: {str(e)}", "error")
+            return {"error": f"Google Analytics collection error: {str(e)}"}
+    
+    async def _collect_from_crm(self, time_period: str, tool_spec: Dict[str, Any]) -> Dict[str, Any]:
+        """Collect customer data from CRM tool."""
+        try:
+            tool_result = await self._execute_tool(tool_spec, {
+                "action": "get_customer_analytics",
+                "time_period": time_period,
+                "include": ["customer_count", "acquisition_cost", "lifetime_value", "churn_rate"]
+            })
+            
+            if tool_result.get("status") == "success":
+                return tool_result.get("data", {})
+            else:
+                self._log(f"CRM tool failed: {tool_result.get('error', 'Unknown error')}", "error")
+                return {"error": "CRM data collection failed"}
+                
+        except Exception as e:
+            self._log(f"Error collecting from CRM: {str(e)}", "error")
+            return {"error": f"CRM collection error: {str(e)}"}
+    
+    async def _collect_customer_data_from_database(self, time_period: str, tool_spec: Dict[str, Any]) -> Dict[str, Any]:
+        """Collect customer data from database analytics tool."""
+        try:
+            tool_result = await self._execute_tool(tool_spec, {
+                "query_type": "customer_metrics",
+                "time_period": time_period,
+                "tables": ["users", "customers", "subscriptions", "transactions"]
+            })
+            
+            if tool_result.get("status") == "success":
+                return tool_result.get("data", {})
+            else:
+                self._log(f"Database tool failed: {tool_result.get('error', 'Unknown error')}", "error")
+                return {"error": "Database data collection failed"}
+                
+        except Exception as e:
+            self._log(f"Error collecting from database: {str(e)}", "error")
+            return {"error": f"Database collection error: {str(e)}"}
     
     async def _collect_marketing_metrics(self, time_period: str, available_tools: Dict[str, Any]) -> Dict[str, Any]:
         """Collect marketing campaign and channel performance metrics."""
@@ -298,7 +460,7 @@ Always provide actionable insights that enable data-driven autonomous decisions.
                 "satisfaction_rating": 4.1,
                 "support_tickets": 3
             },
-            "collection_source": "google_analytics" if "google_analytics" in available_tools else "simulated"
+            "collection_source": "google_analytics" if "google_analytics" in available_tools else "no_tools_available"
         }
     
     async def _collect_operational_metrics(self, time_period: str, available_tools: Dict[str, Any]) -> Dict[str, Any]:

@@ -158,35 +158,59 @@ Always prioritize financial sustainability and the 20% cost constraint."""
     async def _get_financial_status(self, time_period: str) -> Dict[str, Any]:
         """Get current financial status and spending."""
         try:
+            status = {}
+            
             # Use financial monitoring tool if available
             financial_tool = await self._get_tool_from_registry('financial_monitoring')
             if financial_tool:
-                # Simulate financial status (in real implementation, this would call the actual tool)
-                status = {
-                    'current_spending': 250.0,
-                    'revenue': 1250.0,
-                    'profit_margin': 0.8,
-                    'cash_flow': 1000.0
-                }
-            else:
-                # Fallback to basic status
+                try:
+                    financial_result = await self._execute_tool(financial_tool, {
+                        "action": "get_financial_status",
+                        "time_period": time_period,
+                        "metrics": ["spending", "revenue", "profit_margin", "cash_flow"]
+                    })
+                    
+                    if financial_result.get("status") == "success":
+                        status.update(financial_result.get("data", {}))
+                        self._log("Financial monitoring data retrieved successfully")
+                    else:
+                        self._log(f"Financial monitoring tool failed: {financial_result.get('error', 'Unknown error')}", "error")
+                        
+                except Exception as e:
+                    self._log(f"Error using financial monitoring tool: {str(e)}", "error")
+            
+            # Use budget tracking tool if available
+            budget_tool = await self._get_tool_from_registry('budget_tracking')
+            if budget_tool:
+                try:
+                    budget_result = await self._execute_tool(budget_tool, {
+                        "action": "get_budget_status",
+                        "time_period": time_period,
+                        "include": ["utilization", "limits", "remaining"]
+                    })
+                    
+                    if budget_result.get("status") == "success":
+                        status.update(budget_result.get("data", {}))
+                        self._log("Budget tracking data retrieved successfully")
+                    else:
+                        self._log(f"Budget tracking tool failed: {budget_result.get('error', 'Unknown error')}", "error")
+                        
+                except Exception as e:
+                    self._log(f"Error using budget tracking tool: {str(e)}", "error")
+            
+            # If no tools provided data, return empty status
+            if not status:
+                self._log("No financial tools available - using default values", "warning")
                 status = {
                     'current_spending': 0.0,
                     'revenue': 0.0,
                     'profit_margin': 0.0,
-                    'cash_flow': 0.0
+                    'cash_flow': 0.0,
+                    'budget_utilization': 0.0,
+                    'monthly_limit': 500.0,  # Default from Launchonomy constraints
+                    'remaining_budget': 500.0,
+                    'data_source': 'default_values'
                 }
-            
-            # Add budget tracking if available
-            budget_tool = await self._get_tool_from_registry('budget_tracking')
-            if budget_tool:
-                # Simulate budget data
-                budget_data = {
-                    'budget_utilization': 0.5,
-                    'monthly_limit': 500.0,
-                    'remaining_budget': 250.0
-                }
-                status.update(budget_data)
             
             return status
             

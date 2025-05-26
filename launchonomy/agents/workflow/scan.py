@@ -149,53 +149,60 @@ Always provide data-driven recommendations with clear reasoning and risk assessm
         """Scan for business opportunities using available tools."""
         opportunities = []
         
-        # Simulate opportunity scanning (in real implementation, this would use actual tools)
-        base_opportunities = [
-            {
-                "name": "AI-Powered Newsletter Curation",
-                "description": "Automated newsletter that curates and summarizes AI industry news",
-                "market_size": "Growing AI professional market (500K+ potential subscribers)",
-                "competition_level": "Medium",
-                "estimated_launch_cost": 150,
-                "time_to_first_customer": "14 days",
-                "revenue_model": "Subscription ($10/month)",
-                "automation_potential": "High"
-            },
-            {
-                "name": "Micro-SaaS Landing Page Builder",
-                "description": "Simple tool for creating high-converting landing pages",
-                "market_size": "Small business market (1M+ potential customers)",
-                "competition_level": "High",
-                "estimated_launch_cost": 300,
-                "time_to_first_customer": "21 days",
-                "revenue_model": "One-time purchase ($49) + templates",
-                "automation_potential": "High"
-            },
-            {
-                "name": "Productivity Habit Tracker API",
-                "description": "Simple API for habit tracking integration",
-                "market_size": "Developer and app creator market",
-                "competition_level": "Low",
-                "estimated_launch_cost": 200,
-                "time_to_first_customer": "10 days",
-                "revenue_model": "Usage-based pricing",
-                "automation_potential": "Very High"
-            }
-        ]
+        # Use market research tools to find real opportunities
+        if "market_research" in available_tools:
+            market_data = await self._scan_with_market_research(
+                mission_context, focus_areas, max_opportunities, available_tools["market_research"]
+            )
+            opportunities.extend(market_data)
         
-        # Filter based on focus areas if provided
-        if focus_areas:
-            filtered_opportunities = []
-            for opp in base_opportunities:
-                for focus in focus_areas:
-                    if focus.lower() in opp["description"].lower() or focus.lower() in opp["name"].lower():
-                        filtered_opportunities.append(opp)
-                        break
-            opportunities = filtered_opportunities[:max_opportunities]
-        else:
-            opportunities = base_opportunities[:max_opportunities]
+        # Use trend analysis tools
+        if "trend_analysis" in available_tools:
+            trend_data = await self._scan_with_trend_analysis(
+                mission_context, focus_areas, available_tools["trend_analysis"]
+            )
+            opportunities.extend(trend_data)
         
-        return opportunities
+        # Use competitor analysis tools
+        if "competitor_analysis" in available_tools:
+            competitor_data = await self._scan_with_competitor_analysis(
+                mission_context, focus_areas, available_tools["competitor_analysis"]
+            )
+            opportunities.extend(competitor_data)
+        
+        # Use keyword research tools
+        if "keyword_research" in available_tools:
+            keyword_data = await self._scan_with_keyword_research(
+                mission_context, focus_areas, available_tools["keyword_research"]
+            )
+            opportunities.extend(keyword_data)
+        
+        # If no tools available, return empty list with error
+        if not opportunities and not available_tools:
+            self._log("No market scanning tools available - cannot identify opportunities", "error")
+            return [{
+                "name": "No Opportunities Found",
+                "description": "No market scanning tools available",
+                "error": "No scanning tools available",
+                "market_size": "Unknown",
+                "competition_level": "Unknown",
+                "estimated_launch_cost": 0,
+                "time_to_first_customer": "Unknown",
+                "revenue_model": "Unknown",
+                "automation_potential": "Unknown"
+            }]
+        
+        # Remove duplicates and limit to max_opportunities
+        unique_opportunities = []
+        seen_names = set()
+        for opp in opportunities:
+            if opp["name"] not in seen_names:
+                unique_opportunities.append(opp)
+                seen_names.add(opp["name"])
+                if len(unique_opportunities) >= max_opportunities:
+                    break
+        
+        return unique_opportunities
     
     async def _rank_opportunities(self, opportunities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Rank opportunities based on Launchonomy criteria."""
@@ -284,4 +291,97 @@ Always provide data-driven recommendations with clear reasoning and risk assessm
         # Additional cost per opportunity researched
         per_opportunity_cost = 2.0
         
-        return base_cost + (num_opportunities * per_opportunity_cost) 
+        return base_cost + (num_opportunities * per_opportunity_cost)
+    
+    async def _scan_with_market_research(self, mission_context: Dict[str, Any], 
+                                       focus_areas: List[str], max_opportunities: int,
+                                       tool_spec: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Use market research tool to find opportunities."""
+        try:
+            tool_result = await self._execute_tool(tool_spec, {
+                "action": "find_opportunities",
+                "mission_context": mission_context,
+                "focus_areas": focus_areas,
+                "max_results": max_opportunities,
+                "criteria": {
+                    "max_launch_cost": 500,
+                    "target_time_to_customer": "30 days",
+                    "automation_potential": "medium_or_higher"
+                }
+            })
+            
+            if tool_result.get("status") == "success":
+                return tool_result.get("opportunities", [])
+            else:
+                self._log(f"Market research tool failed: {tool_result.get('error', 'Unknown error')}", "error")
+                return []
+                
+        except Exception as e:
+            self._log(f"Error using market research tool: {str(e)}", "error")
+            return []
+    
+    async def _scan_with_trend_analysis(self, mission_context: Dict[str, Any], 
+                                      focus_areas: List[str], tool_spec: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Use trend analysis tool to identify trending opportunities."""
+        try:
+            tool_result = await self._execute_tool(tool_spec, {
+                "action": "analyze_trends",
+                "focus_areas": focus_areas,
+                "time_period": "last_30_days",
+                "trend_types": ["emerging_markets", "growing_demand", "technology_trends"]
+            })
+            
+            if tool_result.get("status") == "success":
+                return tool_result.get("trending_opportunities", [])
+            else:
+                self._log(f"Trend analysis tool failed: {tool_result.get('error', 'Unknown error')}", "error")
+                return []
+                
+        except Exception as e:
+            self._log(f"Error using trend analysis tool: {str(e)}", "error")
+            return []
+    
+    async def _scan_with_competitor_analysis(self, mission_context: Dict[str, Any], 
+                                           focus_areas: List[str], tool_spec: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Use competitor analysis tool to find market gaps."""
+        try:
+            tool_result = await self._execute_tool(tool_spec, {
+                "action": "find_market_gaps",
+                "focus_areas": focus_areas,
+                "analysis_depth": "competitive_landscape",
+                "include": ["underserved_segments", "pricing_gaps", "feature_gaps"]
+            })
+            
+            if tool_result.get("status") == "success":
+                return tool_result.get("market_gaps", [])
+            else:
+                self._log(f"Competitor analysis tool failed: {tool_result.get('error', 'Unknown error')}", "error")
+                return []
+                
+        except Exception as e:
+            self._log(f"Error using competitor analysis tool: {str(e)}", "error")
+            return []
+    
+    async def _scan_with_keyword_research(self, mission_context: Dict[str, Any], 
+                                        focus_areas: List[str], tool_spec: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Use keyword research tool to identify demand-driven opportunities."""
+        try:
+            tool_result = await self._execute_tool(tool_spec, {
+                "action": "research_demand",
+                "focus_areas": focus_areas,
+                "metrics": ["search_volume", "competition_level", "commercial_intent"],
+                "filters": {
+                    "min_search_volume": 1000,
+                    "max_competition": "medium"
+                }
+            })
+            
+            if tool_result.get("status") == "success":
+                return tool_result.get("demand_opportunities", [])
+            else:
+                self._log(f"Keyword research tool failed: {tool_result.get('error', 'Unknown error')}", "error")
+                return []
+                
+        except Exception as e:
+            self._log(f"Error using keyword research tool: {str(e)}", "error")
+            return [] 

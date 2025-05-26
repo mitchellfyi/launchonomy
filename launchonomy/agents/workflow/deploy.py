@@ -295,29 +295,74 @@ Always prioritize features that directly contribute to getting the first paying 
         }
     
     async def _execute_deployment(self, architecture_plan: Dict[str, Any], budget_limit: float) -> Dict[str, Any]:
-        """Execute the actual deployment process."""
+        """Execute the actual deployment process using available tools."""
         
-        # Simulate deployment process
-        deployment_steps = [
-            "Setting up hosting environment",
-            "Configuring domain and SSL",
-            "Deploying application code",
-            "Setting up database",
-            "Configuring monitoring"
-        ]
+        deployment_result = {}
+        deployment_errors = []
         
-        deployment_result = {
-            "primary_url": f"https://{architecture_plan.get('product_type', 'app')}-mvp.com",
-            "admin_url": f"https://{architecture_plan.get('product_type', 'app')}-mvp.com/admin",
-            "api_endpoints": [
-                f"https://{architecture_plan.get('product_type', 'app')}-mvp.com/api/v1"
-            ],
-            "deployment_steps_completed": deployment_steps,
-            "deployment_time": "45 minutes",
-            "status": "live"
-        }
+        # Use hosting tool to deploy
+        hosting_tool = await self._get_tool_from_registry("hosting")
+        if hosting_tool:
+            try:
+                hosting_result = await self._execute_tool(hosting_tool, {
+                    "action": "deploy_application",
+                    "architecture_plan": architecture_plan,
+                    "budget_limit": budget_limit,
+                    "product_type": architecture_plan.get("product_type", "web_application")
+                })
+                
+                if hosting_result.get("status") == "success":
+                    deployment_result.update(hosting_result.get("deployment_data", {}))
+                    self._log("Hosting deployment successful")
+                else:
+                    deployment_errors.append(f"Hosting deployment failed: {hosting_result.get('error', 'Unknown error')}")
+                    
+            except Exception as e:
+                deployment_errors.append(f"Hosting tool error: {str(e)}")
+                self._log(f"Error using hosting tool: {str(e)}", "error")
+        else:
+            deployment_errors.append("No hosting tool available")
+            self._log("No hosting tool available for deployment", "error")
         
-        self._log("Deployment executed successfully")
+        # Use domain registration tool
+        domain_tool = await self._get_tool_from_registry("domain_registration")
+        if domain_tool:
+            try:
+                domain_result = await self._execute_tool(domain_tool, {
+                    "action": "register_domain",
+                    "product_name": architecture_plan.get("product_name", "mvp"),
+                    "budget_limit": budget_limit
+                })
+                
+                if domain_result.get("status") == "success":
+                    deployment_result.update(domain_result.get("domain_data", {}))
+                    self._log("Domain registration successful")
+                else:
+                    deployment_errors.append(f"Domain registration failed: {domain_result.get('error', 'Unknown error')}")
+                    
+            except Exception as e:
+                deployment_errors.append(f"Domain tool error: {str(e)}")
+                self._log(f"Error using domain tool: {str(e)}", "error")
+        else:
+            deployment_errors.append("No domain registration tool available")
+            self._log("No domain registration tool available", "warning")
+        
+        # If no tools worked, return error result
+        if not deployment_result and deployment_errors:
+            return {
+                "status": "failed",
+                "errors": deployment_errors,
+                "message": "Deployment failed - no working deployment tools available"
+            }
+        
+        # Add metadata
+        deployment_result.update({
+            "status": "live" if not deployment_errors else "partial",
+            "deployment_timestamp": self._get_launchonomy_context()["timestamp"],
+            "errors": deployment_errors if deployment_errors else None
+        })
+        
+        self._log("Deployment process completed")
         return deployment_result
     
     async def _setup_integrations(self, deployment_result: Dict[str, Any], 

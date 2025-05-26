@@ -167,24 +167,42 @@ Always focus on sustainable, cost-effective growth within budget constraints."""
             # Use analytics platform if available
             analytics_tool = await self._get_tool_from_registry('analytics_platform')
             if analytics_tool:
-                # Simulate platform metrics (in real implementation, this would call the actual tool)
-                platform_metrics = {
-                    'total_users': 100,
-                    'active_users': 75,
-                    'new_users_last_30d': 25
-                }
-                metrics.update(platform_metrics)
+                try:
+                    analytics_result = await self._execute_tool(analytics_tool, {
+                        "action": "get_growth_metrics",
+                        "metrics": ["total_users", "active_users", "new_users", "conversion_rate"],
+                        "time_period": "last_30_days"
+                    })
+                    
+                    if analytics_result.get("status") == "success":
+                        platform_metrics = analytics_result.get("data", {})
+                        metrics.update(platform_metrics)
+                        self._log("Analytics platform data retrieved successfully")
+                    else:
+                        self._log(f"Analytics platform tool failed: {analytics_result.get('error', 'Unknown error')}", "error")
+                        
+                except Exception as e:
+                    self._log(f"Error using analytics platform tool: {str(e)}", "error")
             
             # Add user tracking data if available
             tracking_tool = await self._get_tool_from_registry('user_tracking')
             if tracking_tool:
-                # Simulate user data (in real implementation, this would call the actual tool)
-                user_data = {
-                    'retention_rate_7d': 0.6,
-                    'retention_rate_30d': 0.4,
-                    'engagement_score': 0.7
-                }
-                metrics.update(user_data)
+                try:
+                    tracking_result = await self._execute_tool(tracking_tool, {
+                        "action": "get_user_metrics",
+                        "metrics": ["retention_rate", "engagement_score", "churn_rate"],
+                        "time_periods": ["7d", "30d"]
+                    })
+                    
+                    if tracking_result.get("status") == "success":
+                        user_data = tracking_result.get("data", {})
+                        metrics.update(user_data)
+                        self._log("User tracking data retrieved successfully")
+                    else:
+                        self._log(f"User tracking tool failed: {tracking_result.get('error', 'Unknown error')}", "error")
+                        
+                except Exception as e:
+                    self._log(f"Error using user tracking tool: {str(e)}", "error")
             
             # Ensure we have baseline metrics
             default_metrics = {
@@ -488,29 +506,52 @@ Always focus on sustainable, cost-effective growth within budget constraints."""
             }
     
     async def _execute_single_experiment(self, experiment: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute a single growth experiment."""
+        """Execute a single growth experiment using available tools."""
         experiment_type = experiment.get('type', 'unknown')
         area = experiment.get('area', 'unknown')
         budget = experiment.get('budget', 0)
         
-        # Simulate experiment execution based on available tools
+        # Try to use appropriate tools for experiment execution
         if experiment_type == 'acquisition_test':
             return await self._execute_acquisition_experiment(experiment)
         elif experiment_type == 'conversion_test':
-            return self._execute_conversion_experiment(experiment)
+            return await self._execute_conversion_experiment(experiment)
         elif experiment_type == 'retention_test':
-            return self._execute_retention_experiment(experiment)
+            return await self._execute_retention_experiment(experiment)
         elif experiment_type == 'viral_test':
-            return self._execute_viral_experiment(experiment)
+            return await self._execute_viral_experiment(experiment)
         elif experiment_type == 'monetization_test':
-            return self._execute_monetization_experiment(experiment)
+            return await self._execute_monetization_experiment(experiment)
         else:
+            # Try to use a generic experiment tool
+            experiment_tool = await self._get_tool_from_registry('experiment_platform')
+            if experiment_tool:
+                try:
+                    tool_result = await self._execute_tool(experiment_tool, {
+                        "action": "run_experiment",
+                        "experiment_type": experiment_type,
+                        "area": area,
+                        "budget": budget,
+                        "experiment_config": experiment
+                    })
+                    
+                    if tool_result.get("status") == "success":
+                        return tool_result.get("experiment_result", {})
+                    else:
+                        self._log(f"Experiment tool failed: {tool_result.get('error', 'Unknown error')}", "error")
+                        
+                except Exception as e:
+                    self._log(f"Error using experiment tool: {str(e)}", "error")
+            
+            # Fallback if no tools available
             return {
-                'description': f'Executed {experiment_type} experiment',
-                'cost': budget * 0.8,
-                'estimated_impact': 'moderate',
+                'description': f'No tools available for {experiment_type} experiment',
+                'cost': 0,
+                'estimated_impact': 'unknown',
                 'metrics_tracked': [experiment.get('success_metric', 'unknown')],
-                'duration': experiment.get('duration_days', 14)
+                'duration': experiment.get('duration_days', 14),
+                'status': 'skipped',
+                'error': 'No experiment execution tools available'
             }
     
     async def _execute_acquisition_experiment(self, experiment: Dict[str, Any]) -> Dict[str, Any]:
