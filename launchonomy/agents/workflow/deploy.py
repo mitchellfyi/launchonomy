@@ -124,7 +124,7 @@ Always prioritize features that directly contribute to getting the first paying 
             return self._format_output(
                 status="success",
                 data=output_data,
-                cost=output_data["cost_breakdown"]["total_cost"],
+                cost=output_data["cost_breakdown"]["total_setup_cost"],
                 tools_used=list(available_tools.keys()),
                 next_steps=[
                     "Begin customer acquisition campaigns",
@@ -375,11 +375,7 @@ Always prioritize features that directly contribute to getting the first paying 
                 "status": "configured",
                 "webhook_url": f"{deployment_result['primary_url']}/webhooks/stripe"
             },
-            "analytics": {
-                "provider": "Google Analytics",
-                "status": "configured",
-                "tracking_id": "GA-XXXXXXXX"
-            },
+            "analytics": await self._setup_real_analytics_integration(deployment_result),
             "email_automation": {
                 "provider": "ConvertKit",
                 "status": "configured",
@@ -394,6 +390,61 @@ Always prioritize features that directly contribute to getting the first paying 
         
         self._log("Essential integrations configured")
         return integrations
+    
+    async def _setup_real_analytics_integration(self, deployment_result: Dict[str, Any]) -> Dict[str, Any]:
+        """Set up real analytics integration with actual tracking IDs."""
+        
+        # Try to get real Google Analytics tracking ID from environment
+        import os
+        ga_tracking_id = os.getenv("GOOGLE_ANALYTICS_TRACKING_ID")
+        
+        if ga_tracking_id:
+            self._log(f"Using real Google Analytics tracking ID: {ga_tracking_id}")
+            return {
+                "provider": "Google Analytics",
+                "status": "configured",
+                "tracking_id": ga_tracking_id,
+                "source": "environment_variable"
+            }
+        
+        # Try to use analytics tool to create/get tracking ID
+        analytics_tool = await self._get_tool_from_registry("analytics_platform")
+        if analytics_tool:
+            try:
+                analytics_result = await self._execute_tool(analytics_tool, {
+                    "action": "setup_analytics",
+                    "domain": deployment_result.get("primary_url", ""),
+                    "product_name": deployment_result.get("product_name", "MVP")
+                })
+                
+                if analytics_result.get("status") == "success":
+                    tracking_data = analytics_result.get("tracking_data", {})
+                    self._log(f"Analytics tool configured tracking: {tracking_data.get('tracking_id', 'unknown')}")
+                    return {
+                        "provider": tracking_data.get("provider", "Google Analytics"),
+                        "status": "configured",
+                        "tracking_id": tracking_data.get("tracking_id"),
+                        "source": "analytics_tool"
+                    }
+                else:
+                    self._log(f"Analytics tool failed: {analytics_result.get('error', 'Unknown error')}", "warning")
+            except Exception as e:
+                self._log(f"Error using analytics tool: {str(e)}", "warning")
+        
+        # If no real tracking ID available, require manual setup
+        self._log("No real analytics tracking ID available - manual setup required", "warning")
+        return {
+            "provider": "Google Analytics",
+            "status": "requires_manual_setup",
+            "tracking_id": None,
+            "source": "manual_setup_required",
+            "setup_instructions": [
+                "1. Create Google Analytics 4 property at https://analytics.google.com",
+                "2. Get your Measurement ID (format: G-XXXXXXXXXX)",
+                "3. Set environment variable: GOOGLE_ANALYTICS_TRACKING_ID=G-XXXXXXXXXX",
+                "4. Redeploy to activate tracking"
+            ]
+        }
     
     async def _prepare_for_launch(self, deployment_result: Dict[str, Any], 
                                 integrations_result: Dict[str, Any]) -> Dict[str, Any]:
@@ -457,26 +508,57 @@ Always prioritize features that directly contribute to getting the first paying 
     
     def _calculate_deployment_costs(self, deployment_result: Dict[str, Any], 
                                   integrations_result: Dict[str, Any]) -> Dict[str, Any]:
-        """Calculate the total cost of deployment."""
+        """Calculate the total cost of deployment using real-world pricing."""
         
-        costs = {
-            "domain_registration": 12.0,
-            "hosting_setup": 0.0,  # Free tier initially
-            "ssl_certificate": 0.0,  # Free with hosting
-            "payment_processing_setup": 0.0,  # No setup fee
-            "analytics_setup": 0.0,  # Free tier
-            "email_service_setup": 0.0,  # Free tier initially
-            "monitoring_setup": 0.0,  # Free tier
-            "development_time": 50.0,  # Estimated value of development time
+        from ...utils.cost_calculator import calculate_deployment_infrastructure_cost, calculate_third_party_service_cost
+        
+        # Extract deployment configuration
+        deployment_config = {
+            "hosting_provider": deployment_result.get("hosting_provider", "vercel_pro"),
+            "domain_provider": deployment_result.get("domain_provider", "namecheap_com"),
+            "email_service": "convertkit_creator",
+            "analytics_service": "google_analytics",
+            "monitoring_service": "uptimerobot_pro",
+            "database_service": "postgresql_heroku"
         }
         
-        total_cost = sum(costs.values())
+        # Calculate real infrastructure costs
+        infrastructure_costs = calculate_deployment_infrastructure_cost(deployment_config)
+        
+        # Add one-time setup costs
+        setup_costs = {
+            "ssl_certificate": 0.0,  # Free with hosting providers
+            "payment_processing_setup": 0.0,  # No setup fee for Stripe
+            "development_time_value": 150.0,  # Estimated value of automated development
+        }
+        
+        # Calculate payment processing costs if we have transaction data
+        payment_costs = 0.0
+        if "payment_data" in deployment_result:
+            payment_data = deployment_result["payment_data"]
+            payment_costs = calculate_third_party_service_cost(
+                "payment_processing", 
+                "stripe_rate", 
+                payment_data
+            )
+        
+        # Combine all costs
+        all_costs = {**infrastructure_costs, **setup_costs}
+        if payment_costs > 0:
+            all_costs["payment_processing_usage"] = payment_costs
+        
+        total_monthly_cost = sum(cost for key, cost in all_costs.items() 
+                               if not key.endswith("_value") and not key.endswith("_setup"))
+        total_setup_cost = sum(cost for key, cost in all_costs.items() 
+                             if key.endswith("_value") or key.endswith("_setup"))
         
         return {
-            "breakdown": costs,
-            "total_cost": total_cost,
-            "monthly_recurring": 15.0,  # Estimated monthly costs
-            "cost_efficiency": "high"  # Well within budget
+            "breakdown": all_costs,
+            "total_setup_cost": total_setup_cost,
+            "monthly_recurring_cost": total_monthly_cost,
+            "annual_recurring_cost": total_monthly_cost * 12,
+            "cost_efficiency": "high" if total_monthly_cost < 100 else "moderate",
+            "cost_source": "real_world_pricing"
         }
     
     def _estimate_infrastructure_cost(self, product_type: str) -> float:

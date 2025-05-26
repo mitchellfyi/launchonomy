@@ -96,8 +96,8 @@ class OrchestrationAgent(RoutedAgent):
         if not isinstance(message, str):
             try:
                 message = str(message)
-            except Exception:
-                message = "Failed to convert log message to string."
+            except (TypeError, ValueError, AttributeError) as e:
+                message = f"Failed to convert log message to string: {e}"
 
         if self.log_callback:
             self.log_callback(self.name, message, msg_type)
@@ -238,7 +238,7 @@ class OrchestrationAgent(RoutedAgent):
             with open(log_file_path, "w") as f:
                 json.dump(asdict(mission_log), f, indent=2)
             self._log(f"Full mission cycle log archived to {log_file_path}", "info")
-        except Exception as e:
+        except (IOError, OSError, PermissionError, json.JSONEncodeError) as e:
             self._log(f"Error archiving final mission log {log_file_path}: {str(e)}", "error")
         
         # Update the master mission log with this cycle's information

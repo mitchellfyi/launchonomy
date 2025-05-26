@@ -495,6 +495,124 @@ python -m pytest tests/
 
 For issues, questions, or contributions, please [create an issue](link-to-issues) or reach out to the development team.
 
+## 💰 Real-World Cost Tracking
+
+Launchonomy tracks actual costs from real-world services, not just model token costs:
+
+### **Supported Cost Categories**
+
+#### **Infrastructure Costs**
+- **Hosting**: Vercel Pro ($20/mo), Railway ($5/mo), Heroku ($7/mo)
+- **Domains**: Namecheap ($12.98/year), GoDaddy ($14.99/year)
+- **Databases**: PostgreSQL Heroku ($9/mo), PlanetScale ($29/mo)
+- **CDN**: Cloudflare Pro ($20/mo), AWS CloudFront (~$8.50/mo)
+
+#### **Marketing Costs**
+- **Paid Advertising**: Google Ads, Facebook Ads (actual spend)
+- **Email Marketing**: ConvertKit ($29/mo), Mailchimp ($13/mo)
+- **Content Creation**: Canva Pro ($12.99/mo), Adobe Creative ($52.99/mo)
+- **Social Media**: Platform-specific advertising costs
+
+#### **Payment Processing**
+- **Stripe**: 2.9% + $0.30 per transaction
+- **PayPal**: 3.49% for online payments
+- **Square**: 2.9% + $0.30 per transaction
+
+#### **Model Costs** (Updated Pricing)
+- **GPT-4o-mini**: $0.00015/1K input, $0.0006/1K output tokens
+- **GPT-4o**: $0.005/1K input, $0.015/1K output tokens
+- **GPT-4**: $0.03/1K input, $0.06/1K output tokens
+
+### **Cost Calculation Examples**
+
+```python
+from launchonomy.utils.cost_calculator import (
+    calculate_deployment_infrastructure_cost,
+    calculate_marketing_campaign_cost,
+    calculate_third_party_service_cost
+)
+
+# Infrastructure costs
+deployment_config = {
+    "hosting_provider": "vercel_pro",
+    "domain_provider": "namecheap_com",
+    "email_service": "convertkit_creator"
+}
+costs = calculate_deployment_infrastructure_cost(deployment_config)
+# Returns: {"hosting": 20.0, "domain": 1.08, "email": 29.0, ...}
+
+# Marketing campaign costs
+campaign_config = {
+    "social_media_budget": 100.0,
+    "google_ads_budget": 150.0,
+    "content_tools": ["canva_pro"]
+}
+marketing_costs = calculate_marketing_campaign_cost(campaign_config)
+# Returns: {"social_media_ads": 100.0, "google_ads": 150.0, "content_creation": 12.99}
+
+# Payment processing costs
+payment_data = {"transaction_amount": 1000.0, "transaction_count": 20}
+processing_cost = calculate_third_party_service_cost("payment_processing", "stripe_rate", payment_data)
+# Returns: 35.0 (2.9% of $1000 + $0.30 × 20 transactions)
+```
+
+## 📊 Real Analytics Integration
+
+### **Google Analytics Setup**
+
+The system integrates with real analytics services, not fake tracking IDs:
+
+#### **Environment Variable Method**
+```bash
+# Set your real Google Analytics tracking ID
+export GOOGLE_ANALYTICS_TRACKING_ID="G-XXXXXXXXXX"
+```
+
+#### **Manual Setup Instructions**
+If no tracking ID is provided, the system will guide you:
+
+1. Create Google Analytics 4 property at https://analytics.google.com
+2. Get your Measurement ID (format: G-XXXXXXXXXX)
+3. Set environment variable: `GOOGLE_ANALYTICS_TRACKING_ID=G-XXXXXXXXXX`
+4. Redeploy to activate tracking
+
+#### **Tool Integration**
+The system can also use analytics tools to automatically set up tracking:
+
+```python
+# Analytics tool integration
+analytics_result = await analytics_tool.execute({
+    "action": "setup_analytics",
+    "domain": "your-product.com",
+    "product_name": "Your MVP"
+})
+```
+
+### **Cost Monitoring Dashboard**
+
+Track real costs in the CLI:
+
+```
+📊 Mission Cost Breakdown:
+├── Infrastructure: $67.08/month
+│   ├── Hosting (Vercel Pro): $20.00
+│   ├── Domain (Namecheap): $1.08
+│   ├── Email (ConvertKit): $29.00
+│   ├── Database (PostgreSQL): $9.00
+│   └── Monitoring (UptimeRobot): $7.00
+├── Marketing: $245.50 (one-time)
+│   ├── Google Ads: $150.00
+│   ├── Social Media: $80.00
+│   └── Content Creation: $15.50
+├── Payment Processing: $35.20 (2.9% + fees)
+└── Model Costs: $2.45 (GPT-4o-mini)
+
+Total Setup Cost: $350.23
+Monthly Recurring: $67.08
+Revenue Generated: $1,247.50
+ROI: 256% 🎉
+```
+
 ---
 
 **Launchonomy** - Where AI agents build businesses autonomously 🚀 

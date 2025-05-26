@@ -187,7 +187,7 @@ class OverallMissionLog:
                 json.dump(asdict(self), f, indent=4)
             # Global logger, not class-specific logger here unless passed
             logging.info(f"Mission log saved to {log_file_path}") 
-        except Exception as e:
+        except (IOError, OSError, PermissionError, json.JSONEncodeError) as e:
             logging.error(f"Failed to save mission log {log_id}: {e}")
 
 # Generic Log function (can be part of OrchestratorAgent or a utility)
@@ -201,8 +201,8 @@ def log_message(log_callback: Optional[Any], logger_instance: logging.Logger, so
     if not isinstance(message, str):
         try:
             message = str(message)
-        except Exception:
-            message = "Failed to convert log message to string."
+        except (TypeError, ValueError, AttributeError) as e:
+            message = f"Failed to convert log message to string: {e}"
 
     if log_callback:
         log_callback(source_name, message, msg_type)

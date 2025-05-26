@@ -6,8 +6,21 @@ C-Suite agents, and base classes.
 """
 
 from .base.workflow_agent import BaseWorkflowAgent
-from .workflow import *
+from .workflow import (
+    ScanAgent,
+    DeployAgent,
+    CampaignAgent,
+    AnalyticsAgent,
+    FinanceAgent,
+    GrowthAgent
+)
 
 __all__ = [
-    "BaseWorkflowAgent"
+    "BaseWorkflowAgent",
+    "ScanAgent",
+    "DeployAgent", 
+    "CampaignAgent",
+    "AnalyticsAgent",
+    "FinanceAgent",
+    "GrowthAgent"
 ] 

@@ -59,8 +59,8 @@ class AgentManager:
         if not isinstance(message, str):
             try:
                 message = str(message)
-            except Exception:
-                message = "Failed to convert log message to string."
+            except (TypeError, ValueError, AttributeError) as e:
+                message = f"Failed to convert log message to string: {e}"
 
         if self.log_callback:
             self.log_callback("AgentManager", message, msg_type)

@@ -6,13 +6,13 @@
       "spec": {}
     },
     "AutoProvisionAgent": {
-      "module": "orchestrator.agents.auto_provision_agent",
+      "module": "launchonomy.agents.workflow.auto_provision_agent",
       "class": "AutoProvisionAgent",
       "certified": true,
       "spec": {}
     },
     "ScanAgent": {
-      "module": "orchestrator.agents.scan_agent",
+      "module": "launchonomy.agents.workflow.scan",
       "class": "ScanAgent",
       "certified": true,
       "spec": {
@@ -32,7 +32,7 @@
       }
     },
     "DeployAgent": {
-      "module": "orchestrator.agents.deploy_agent",
+      "module": "launchonomy.agents.workflow.deploy",
       "class": "DeployAgent",
       "certified": true,
       "spec": {
@@ -52,7 +52,7 @@
       }
     },
     "CampaignAgent": {
-      "module": "orchestrator.agents.campaign_agent",
+      "module": "launchonomy.agents.workflow.campaign",
       "class": "CampaignAgent",
       "certified": true,
       "spec": {
@@ -72,7 +72,7 @@
       }
     },
     "AnalyticsAgent": {
-      "module": "orchestrator.agents.analytics_agent",
+      "module": "launchonomy.agents.workflow.analytics",
       "class": "AnalyticsAgent",
       "certified": true,
       "spec": {
@@ -92,7 +92,7 @@
       }
     },
     "FinanceAgent": {
-      "module": "orchestrator.agents.finance_agent",
+      "module": "launchonomy.agents.workflow.finance",
       "class": "FinanceAgent",
       "certified": true,
       "spec": {
@@ -112,7 +112,7 @@
       }
     },
     "GrowthAgent": {
-      "module": "orchestrator.agents.growth_agent",
+      "module": "launchonomy.agents.workflow.growth",
       "class": "GrowthAgent",
       "certified": true,
       "spec": {

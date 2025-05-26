@@ -435,31 +435,68 @@ Always prioritize getting the first paying customer, then focus on scalable, pro
         }
     
     def _allocate_budget_by_channel(self, total_budget: float, channel_strategy: Dict[str, Any]) -> Dict[str, Any]:
-        """Allocate budget across selected channels."""
+        """Allocate budget across selected channels using real-world cost estimates."""
+        
+        from ...utils.cost_calculator import calculate_marketing_campaign_cost
         
         channels = channel_strategy["channels"]
         if not channels:
             return {"total_budget": total_budget, "allocations": {}}
         
-        # Allocate budget based on channel effectiveness
-        total_effectiveness = sum(c["effectiveness"] for c in channels)
+        # Calculate real-world cost estimates for each channel
+        channel_costs = {}
+        total_estimated_cost = 0
         
-        allocations = {}
-        remaining_budget = total_budget
+        for channel in channels:
+            channel_name = channel["name"]
+            
+            # Estimate minimum viable budget for each channel
+            if channel_name == "paid_advertising":
+                min_budget = 50.0  # Minimum for effective paid ads
+            elif channel_name == "social_media":
+                min_budget = 30.0  # Minimum for social media ads
+            elif channel_name == "email_marketing":
+                min_budget = 20.0  # Minimum for email campaigns
+            elif channel_name == "content_marketing":
+                min_budget = 40.0  # Minimum for content creation
+            elif channel_name == "influencer_outreach":
+                min_budget = 100.0  # Minimum for influencer partnerships
+            else:
+                min_budget = 25.0  # Default minimum
+            
+            # Scale based on effectiveness but respect minimums
+            effectiveness_weight = channel["effectiveness"]
+            estimated_cost = max(min_budget, total_budget * effectiveness_weight * 0.3)
+            
+            channel_costs[channel_name] = estimated_cost
+            total_estimated_cost += estimated_cost
         
-        for channel in channels[:-1]:  # All but last channel
-            allocation = (channel["effectiveness"] / total_effectiveness) * total_budget
-            allocations[channel["name"]] = round(allocation, 2)
-            remaining_budget -= allocation
+        # If total estimated cost exceeds budget, scale down proportionally
+        if total_estimated_cost > total_budget:
+            scale_factor = total_budget / total_estimated_cost
+            for channel_name in channel_costs:
+                channel_costs[channel_name] *= scale_factor
         
-        # Give remaining budget to last channel (handles rounding)
-        if channels:
-            allocations[channels[-1]["name"]] = round(remaining_budget, 2)
+        # Allocate remaining budget based on effectiveness
+        allocated_budget = sum(channel_costs.values())
+        remaining_budget = total_budget - allocated_budget
+        
+        if remaining_budget > 0:
+            # Distribute remaining budget based on effectiveness
+            total_effectiveness = sum(c["effectiveness"] for c in channels)
+            for channel in channels:
+                channel_name = channel["name"]
+                additional_budget = (channel["effectiveness"] / total_effectiveness) * remaining_budget
+                channel_costs[channel_name] += additional_budget
+        
+        # Round allocations
+        allocations = {name: round(cost, 2) for name, cost in channel_costs.items()}
         
         return {
             "total_budget": total_budget,
             "allocations": allocations,
-            "primary_channel_budget": allocations.get(channel_strategy["primary_channel"], 0)
+            "primary_channel_budget": allocations.get(channel_strategy["primary_channel"], 0),
+            "cost_estimation_method": "real_world_minimums"
         }
     
     async def _execute_campaigns(self, campaign_strategy: Dict[str, Any], 
@@ -573,12 +610,14 @@ Always prioritize getting the first paying customer, then focus on scalable, pro
         return monitoring_config
     
     async def _calculate_campaign_performance(self, campaign_results: Dict[str, Any]) -> Dict[str, Any]:
-        """Calculate campaign performance metrics from actual campaign data."""
+        """Calculate campaign performance metrics using real cost data."""
+        
+        from ...utils.cost_calculator import calculate_marketing_campaign_cost
         
         campaigns = campaign_results.get("campaigns_launched", [])
-        total_budget = sum(c.get("budget_allocated", 0) for c in campaigns)
         
-        # Aggregate actual performance data from campaigns
+        # Calculate real costs for each campaign
+        total_real_cost = 0
         total_reach = 0
         total_impressions = 0
         total_clicks = 0
@@ -586,23 +625,32 @@ Always prioritize getting the first paying customer, then focus on scalable, pro
         
         for campaign in campaigns:
             if campaign.get("status") == "active":
+                channel = campaign.get("channel", "unknown")
+                budget_allocated = campaign.get("budget_allocated", 0)
+                
+                # Calculate real costs based on channel type
+                real_cost = self._calculate_real_channel_cost(channel, budget_allocated, campaign)
+                total_real_cost += real_cost
+                
                 # Get actual metrics from campaign data
                 total_reach += campaign.get("actual_reach", campaign.get("estimated_reach", 0))
                 total_impressions += campaign.get("actual_impressions", campaign.get("estimated_impressions", 0))
                 total_clicks += campaign.get("actual_clicks", campaign.get("estimated_clicks", 0))
                 total_conversions += campaign.get("actual_conversions", campaign.get("estimated_conversions", 0))
         
-        # Calculate performance metrics
+        # Calculate performance metrics with real costs
         ctr = (total_clicks / total_impressions) if total_impressions > 0 else 0
         conversion_rate = (total_conversions / total_clicks) if total_clicks > 0 else 0
-        cpa = (total_budget / total_conversions) if total_conversions > 0 else total_budget
+        cpa = (total_real_cost / total_conversions) if total_conversions > 0 else total_real_cost
         
-        # Estimate revenue (assuming $50 average order value)
-        estimated_revenue = total_conversions * 50
-        roi = ((estimated_revenue - total_budget) / total_budget) if total_budget > 0 else 0
+        # Use realistic average order value based on product type
+        avg_order_value = self._estimate_average_order_value()
+        estimated_revenue = total_conversions * avg_order_value
+        roi = ((estimated_revenue - total_real_cost) / total_real_cost) if total_real_cost > 0 else 0
         
         performance = {
-            "total_budget_spent": total_budget,
+            "total_budget_allocated": sum(c.get("budget_allocated", 0) for c in campaigns),
+            "total_real_cost": total_real_cost,
             "total_reach": total_reach,
             "total_impressions": total_impressions,
             "total_clicks": total_clicks,
@@ -610,12 +658,58 @@ Always prioritize getting the first paying customer, then focus on scalable, pro
             "click_through_rate": ctr,
             "conversion_rate": conversion_rate,
             "cost_per_acquisition": cpa,
+            "average_order_value": avg_order_value,
             "estimated_revenue": estimated_revenue,
             "return_on_investment": roi,
-            "performance_score": min(100, max(0, roi * 50 + 50))  # Scale ROI to 0-100 score
+            "performance_score": min(100, max(0, roi * 50 + 50)),  # Scale ROI to 0-100 score
+            "cost_calculation_method": "real_world_pricing"
         }
         
         return performance
+    
+    def _calculate_real_channel_cost(self, channel: str, budget_allocated: float, campaign_data: Dict[str, Any]) -> float:
+        """Calculate real cost for a specific channel campaign."""
+        
+        # Platform fees and actual costs by channel
+        if channel == "paid_advertising":
+            # Google Ads/Facebook Ads typically have no platform fee, just ad spend
+            return budget_allocated
+        elif channel == "social_media":
+            # Social media ads + potential content creation costs
+            content_creation_cost = min(budget_allocated * 0.2, 50.0)  # 20% for content, max $50
+            return budget_allocated + content_creation_cost
+        elif channel == "email_marketing":
+            # Email platform costs + design costs
+            if budget_allocated > 100:
+                platform_cost = 29.0  # ConvertKit Creator plan
+            else:
+                platform_cost = 13.0  # Mailchimp Essentials
+            return min(budget_allocated, platform_cost + budget_allocated * 0.1)
+        elif channel == "content_marketing":
+            # Content creation tools + distribution costs
+            tool_costs = 12.99  # Canva Pro monthly
+            return budget_allocated + tool_costs
+        elif channel == "influencer_outreach":
+            # Direct influencer payments + platform fees
+            platform_fee = budget_allocated * 0.1  # 10% platform fee
+            return budget_allocated + platform_fee
+        else:
+            # Default: assume budget is actual cost
+            return budget_allocated
+    
+    def _estimate_average_order_value(self) -> float:
+        """Estimate average order value based on product type and market."""
+        
+        # This should be based on actual product pricing
+        # For now, use realistic estimates by product category
+        context = self._get_launchonomy_context()
+        
+        # Try to get from mission context or use reasonable defaults
+        if "product_price" in context:
+            return float(context["product_price"])
+        
+        # Default estimates by product type (should be configured per product)
+        return 49.99  # Reasonable default for SaaS/digital products
     
     def _calculate_next_optimization_date(self) -> str:
         """Calculate when the next optimization cycle should run."""

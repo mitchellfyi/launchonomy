@@ -29,6 +29,7 @@ from rich.table import Table
 from .core.orchestrator import create_orchestrator
 from autogen_ext.models.openai import OpenAIChatCompletionClient
 from .utils.logging import OverallMissionLog, get_timestamp
+from .utils.cost_calculator import calculate_cycle_cost
 import re
 
 load_dotenv()
@@ -877,7 +878,7 @@ async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger
                             "guardrail_status": cycle_log.get("guardrail_status", "OK")
                         }
                     },
-                    "total_cycle_cost": 0.0,  # TODO: Calculate actual cost from workflow steps
+                    "total_cycle_cost": calculate_cycle_cost(cycle_log),
                     "recommendation_text": f"C-Suite cycle {cycle_log.get('iteration', 0)} - Strategic planning + {len(cycle_log.get('steps', {}))} workflow agents"
                 }
                 overall_log.decision_cycles_summary.append(cycle_summary)
