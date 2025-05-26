@@ -34,7 +34,7 @@ async def test_basic_memory_operations():
     try:
         # Test 1: Create mission memory
         print("\n1. Creating mission memory...")
-        mission_id = f"test_mission_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        mission_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_test_mission"
         memory_store = create_mission_memory(mission_id, temp_dir)
         print(f"✅ Created memory store for mission: {mission_id}")
         

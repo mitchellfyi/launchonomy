@@ -8,6 +8,7 @@ from .orchestrator import OrchestrationAgent, create_orchestrator
 from .mission_manager import MissionManager, MissionLog, CycleLog
 from .agent_manager import AgentManager, TemplateError, load_template
 from .communication import AgentCommunicator, ReviewManager, AgentCommunicationError
+from .workspace_manager import WorkspaceManager, WorkspaceConfig, AssetManifest
 
 __all__ = [
     "OrchestrationAgent",
@@ -20,5 +21,8 @@ __all__ = [
     "load_template",
     "AgentCommunicator",
     "ReviewManager", 
-    "AgentCommunicationError"
+    "AgentCommunicationError",
+    "WorkspaceManager",
+    "WorkspaceConfig",
+    "AssetManifest"
 ] 

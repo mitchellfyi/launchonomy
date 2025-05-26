@@ -40,10 +40,34 @@ await orchestrator.bootstrap_c_suite(overall_mission_string)
 # - CFO-Agent: Financial approval
 ```
 
-### **3. Mission Context Setup**
+### **3. Mission Workspace Creation**
+```python
+# Automatic workspace creation
+workspace_config = workspace_manager.create_workspace(
+    mission_id=mission_id,
+    mission_name=mission_name,
+    overall_mission=overall_mission_string,
+    tags=["active", "business"]
+)
+
+# Workspace structure created:
+# .launchonomy/{mission_id}_{sanitized_name}/
+# ├── workspace_config.json
+# ├── asset_manifest.json
+# ├── agents/          # Mission-specific agents
+# ├── tools/           # Mission-specific tools
+# ├── assets/          # Generated files
+# ├── logs/            # Mission logs
+# ├── state/           # Mission state
+# ├── memory/          # ChromaDB storage
+# └── docs/            # Documentation
+```
+
+### **4. Mission Context Setup**
 ```python
 mission_context = {
     "overall_mission": overall_mission_string,
+    "workspace_path": workspace_config.workspace_path,
     "accepted_cycles": [],  # Previous successful cycles
     "budget_constraints": {"max_cost_ratio": 0.20},
     "success_criteria": ["first_paying_customer", "profitability"]
@@ -275,6 +299,52 @@ growth_result = await growth_agent.execute(
 }
 ```
 
+### **Asset Storage During Execution**
+
+All workflow outputs are automatically stored in the mission workspace:
+
+```python
+# Generated code files
+workspace_manager.save_asset(
+    mission_id=mission_id,
+    asset_name="mvp_deployment_script.py",
+    asset_data=deploy_result["data"]["deployment_script"],
+    category="code"
+)
+
+# Configuration files
+workspace_manager.save_asset(
+    mission_id=mission_id,
+    asset_name="campaign_config.json",
+    asset_data=campaign_result["data"]["campaign_settings"],
+    category="configs"
+)
+
+# Analytics data
+workspace_manager.save_asset(
+    mission_id=mission_id,
+    asset_name="performance_metrics.json",
+    asset_data=analytics_result["data"]["metrics"],
+    category="data"
+)
+
+# Mission-specific agents created by DevAgent
+workspace_manager.add_agent_to_workspace(
+    mission_id=mission_id,
+    agent_name="NewsletterAgent",
+    agent_spec={"description": "Manages newsletter content generation"},
+    agent_code=generated_agent_code
+)
+
+# Mission-specific tools created by QAAgent
+workspace_manager.add_tool_to_workspace(
+    mission_id=mission_id,
+    tool_name="ContentValidator",
+    tool_spec={"description": "Validates newsletter content quality"},
+    tool_code=generated_tool_code
+)
+```
+
 ---
 
 ## 💾 **State Management**
@@ -339,13 +409,56 @@ cycle_summary = {
 ```
 
 ### **Persistent Storage**
+
+#### **Primary Storage: Mission Workspace**
 ```python
-# Mission logs saved as JSON
-mission_logs/mission_20250526_143022_ai_newsletter_service.json
+# Mission data stored in organized workspace
+.launchonomy/20250526_143022_mission_ai_newsletter_service/
+├── state/
+│   ├── mission_log.json           # Primary mission log
+│   ├── current_state.json         # Current mission state
+│   └── checkpoints/
+│       ├── 20250526_143030_milestone_1.json
+│       └── 20250526_143045_mvp_complete.json
+├── logs/
+│   ├── cycles/
+│   │   ├── 20250526_143022_csuite_cycle_1.json
+│   │   └── 20250526_143035_csuite_cycle_2.json
+│   └── agents/
+│       ├── scan_agent_20250526_143025.log
+│       └── deploy_agent_20250526_143030.log
+├── assets/
+│   ├── code/
+│   │   ├── 20250526_143030_mvp_deployment_script.py
+│   │   └── 20250526_143035_newsletter_generator.py
+│   ├── configs/
+│   │   ├── 20250526_143028_campaign_config.json
+│   │   └── 20250526_143040_analytics_config.json
+│   └── data/
+│       ├── 20250526_143042_performance_metrics.json
+│       └── 20250526_143045_customer_data.csv
+├── agents/
+│   └── NewsletterAgent/
+│       ├── spec.json
+│       └── newsletter_agent.py
+├── tools/
+│   └── ContentValidator/
+│       ├── spec.json
+│       └── content_validator.py
+├── memory/
+│   └── chromadb/                  # Mission-specific vector storage
+└── asset_manifest.json           # Comprehensive asset tracking
+```
+
+#### **Mission Data Storage**
+```python
+# All mission data stored in workspace
+.launchonomy/20250526_143022_mission_ai_newsletter_service_ai_newsletter_service/state/mission_log.json
 
 {
     "mission_id": "mission_20250526_143022_ai_newsletter_service",
     "overall_mission": "Build an AI-powered newsletter service",
+    "workspace_path": ".launchonomy/20250526_143022_mission_ai_newsletter_service",
     "final_status": "completed",
     "total_mission_cost": 245.67,
     "total_decision_cycles": 3,

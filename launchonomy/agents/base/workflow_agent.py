@@ -23,10 +23,11 @@ class WorkflowOutput:
 class BaseWorkflowAgent(ABC):
     """Base class for all workflow agents in the Launchonomy system."""
     
-    def __init__(self, name: str, registry=None, orchestrator=None):
+    def __init__(self, name: str, registry=None, orchestrator=None, mission_context: Optional[Dict[str, Any]] = None):
         self.name = name
         self.registry = registry
         self.orchestrator = orchestrator
+        self.mission_context = mission_context or {}
         self.logger = logging.getLogger(f"workflow.{name}")
         
     def _log(self, message: str, level: str = "info"):
@@ -50,11 +51,63 @@ class BaseWorkflowAgent(ABC):
             "governance": "Unanimous consensus voting for all proposals, no human approval needed except for system-critical failures"
         }
         
+        # Include mission context if available
+        if self.mission_context:
+            context.update(self.mission_context)
+        
         if self.registry:
             context["available_agents"] = self.registry.list_agent_names()
             context["available_tools"] = self.registry.list_tool_names()
         
         return context
+    
+    def _save_asset_to_workspace(self, asset_name: str, asset_data: Any, category: str = "data") -> bool:
+        """
+        Save an asset to the mission workspace.
+        
+        Args:
+            asset_name: Name of the asset file
+            asset_data: Asset content (string, dict, etc.)
+            category: Asset category (code, configs, data, media)
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Get mission ID from mission context
+            mission_id = self.mission_context.get("mission_id")
+            if not mission_id:
+                self._log("No mission_id in context, cannot save asset to workspace", "warning")
+                return False
+            
+            # Get workspace manager from orchestrator
+            if not self.orchestrator or not hasattr(self.orchestrator, 'mission_manager'):
+                self._log("No workspace manager available, cannot save asset", "warning")
+                return False
+            
+            workspace_manager = self.orchestrator.mission_manager.workspace_manager
+            if not workspace_manager:
+                self._log("Workspace manager not initialized", "warning")
+                return False
+            
+            # Save asset to workspace
+            asset_path = workspace_manager.save_asset(
+                mission_id=mission_id,
+                asset_name=asset_name,
+                asset_data=asset_data,
+                category=category
+            )
+            
+            if asset_path:
+                self._log(f"Saved asset to workspace: {asset_path}", "info")
+                return True
+            else:
+                self._log(f"Failed to save asset: {asset_name}", "error")
+                return False
+                
+        except Exception as e:
+            self._log(f"Error saving asset to workspace: {e}", "error")
+            return False
     
     async def _get_relevant_memories(self, current_intent: str, k: int = 3) -> str:
         """

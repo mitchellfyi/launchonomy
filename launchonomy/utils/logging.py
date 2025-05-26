@@ -161,34 +161,8 @@ class OverallMissionLog:
     error_message: Optional[str] = None # If the mission failed overall
     retrospective_analysis: Optional[Dict[str, Any]] = field(default_factory=dict) # For storing insights from RetrospectiveAgent
 
-    # Method to save the log to a file
-    def save_log(self, mission_id: Optional[str] = None):
-        log_id = mission_id if mission_id else self.mission_id
-        # Ensure mission_logs directory exists
-        if not os.path.exists("mission_logs"):
-            os.makedirs("mission_logs")
-        # Fallback for nested structure if running from parent
-        elif not os.path.exists("../mission_logs") and os.path.basename(os.getcwd()) == "orchestrator":
-             if not os.path.exists("../mission_logs"):
-                os.makedirs("../mission_logs")
-             log_file_path = os.path.join("..", "mission_logs", f"{log_id}.json")
-        else:
-            log_file_path = os.path.join("mission_logs", f"{log_id}.json")
-        
-        # If still not found (e.g. running from autogen/autogen)
-        if not os.path.exists(os.path.dirname(log_file_path)):
-            alt_path = os.path.join("orchestrator", "mission_logs")
-            if not os.path.exists(alt_path):
-                 os.makedirs(alt_path)
-            log_file_path = os.path.join(alt_path, f"{log_id}.json")
-
-        try:
-            with open(log_file_path, 'w') as f:
-                json.dump(asdict(self), f, indent=4)
-            # Global logger, not class-specific logger here unless passed
-            logging.info(f"Mission log saved to {log_file_path}") 
-        except (IOError, OSError, PermissionError, json.JSONEncodeError) as e:
-            logging.error(f"Failed to save mission log {log_id}: {e}")
+    # Note: Mission logs are now saved through the Mission Workspace System
+    # This class is used for in-memory representation during mission execution
 
 # Generic Log function (can be part of OrchestratorAgent or a utility)
 # If it's used by OrchestratorAgent instance, it should be a method of that class

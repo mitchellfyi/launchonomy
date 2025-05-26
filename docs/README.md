@@ -10,6 +10,7 @@ Welcome to the Launchonomy documentation! This directory contains comprehensive 
 
 ### 🎯 Mission & Workflow
 - **[Mission Lifecycle Guide](MISSION_LIFECYCLE.md)** - Complete guide to how missions work from start to finish, including C-Suite orchestration and workflow execution
+- **[Mission Workspace System](WORKSPACE_SYSTEM.md)** - Complete guide to the mission workspace system, asset management, and CLI tools
 
 ### 🛠️ Development & Contribution
 - **[Development Guide](DEVELOPMENT_GUIDE.md)** - Comprehensive guide for developers contributing to Launchonomy, including architecture patterns, coding standards, and best practices
@@ -23,14 +24,15 @@ If you're new to Launchonomy, we recommend reading the documentation in this ord
 
 1. **[AutoGen Architecture Guide](AUTOGEN_ARCHITECTURE.md)** - Understand the technical foundation
 2. **[Mission Lifecycle Guide](MISSION_LIFECYCLE.md)** - Learn how missions work
-3. **[Development Guide](DEVELOPMENT_GUIDE.md)** - Start contributing
-4. **[Troubleshooting Guide](TROUBLESHOOTING.md)** - Reference for common issues
+3. **[Mission Workspace System](WORKSPACE_SYSTEM.md)** - Understand workspace organization and asset management
+4. **[Development Guide](DEVELOPMENT_GUIDE.md)** - Start contributing
+5. **[Troubleshooting Guide](TROUBLESHOOTING.md)** - Reference for common issues
 
 ## 🔗 Related Resources
 
 - **[Main README](../README.md)** - Project overview and quick start guide
 - **[Test Memory Integration](../tests/test_memory_integration.py)** - Test script for the RAG memory system
-- **[Mission Logs](../mission_logs/)** - Directory containing mission execution logs
+- **[Mission Workspaces](../.launchonomy/)** - Mission workspace system for all mission data
 
 ---
 

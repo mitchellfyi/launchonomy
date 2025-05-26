@@ -18,16 +18,18 @@ class ToolTrainer:
     5. Coordinate with ToolDev for implementing improvements
     """
     
-    def __init__(self, registry, coa):
+    def __init__(self, registry, orchestrator, mission_context: Optional[Dict[str, Any]] = None):
         """
         Initialize ToolTrainer.
         
         Args:
             registry: Registry instance for managing agents/tools
-            coa: Consensus Orchestration Authority (OrchestrationAgent)
+            orchestrator: OrchestrationAgent instance
+            mission_context: Mission context including workspace information
         """
         self.registry = registry
-        self.coa = coa
+        self.orchestrator = orchestrator
+        self.mission_context = mission_context or {}
         self.name = "ToolTrainer"
         
     def _log(self, message: str, level: str = "info"):

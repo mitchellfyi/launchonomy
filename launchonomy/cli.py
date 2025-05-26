@@ -413,23 +413,43 @@ class MissionMonitor:
         )
 
 def load_mission_log(mission_file_path: str) -> Optional[OverallMissionLog]:
-    """Load a mission log from a JSON file."""
+    """Load a mission log from workspace or old format file."""
     try:
-        with open(mission_file_path, 'r') as f:
-            data = json.load(f)
+        # Check if this is a workspace path
+        if mission_file_path.startswith("workspace:"):
+            workspace_path = mission_file_path[10:]  # Remove "workspace:" prefix
+            mission_log_file = os.path.join(workspace_path, "state", "mission_log.json")
+            
+            if not os.path.exists(mission_log_file):
+                logger.error(f"Mission log not found in workspace: {mission_log_file}")
+                return None
+                
+            with open(mission_log_file, 'r') as f:
+                data = json.load(f)
+        else:
+            # Load from old format file
+            with open(mission_file_path, 'r') as f:
+                data = json.load(f)
+        
+        # Handle different timestamp field names for compatibility
+        # New MissionManager uses 'start_timestamp', old OverallMissionLog uses 'timestamp'
+        timestamp = data.get("timestamp") or data.get("start_timestamp", "")
+        
+        # Map status field - MissionManager uses 'status', OverallMissionLog uses 'final_status'
+        final_status = data.get("final_status") or data.get("status", "Initialized")
         
         # Convert dict back to OverallMissionLog dataclass
         mission_log = OverallMissionLog(
             mission_id=data["mission_id"],
-            timestamp=data["timestamp"],
+            timestamp=timestamp,
             overall_mission=data["overall_mission"],
-            final_status=data.get("final_status", "Initialized"),
+            final_status=final_status,
             total_mission_cost=data.get("total_mission_cost", 0.0),
-            total_decision_cycles=data.get("total_decision_cycles", 0),
+            total_decision_cycles=data.get("total_decision_cycles", data.get("completed_cycles", 0)),
             total_input_tokens=data.get("total_input_tokens", 0),
             total_output_tokens=data.get("total_output_tokens", 0),
-            decision_cycles_summary=data.get("decision_cycles_summary", []),
-            created_agents=data.get("created_agents", []),
+            decision_cycles_summary=data.get("decision_cycles_summary", data.get("cycle_summaries", [])),
+            created_agents=data.get("created_agents", data.get("persistent_agents", [])),
             current_decision_focus=data.get("current_decision_focus"),
             last_activity_description=data.get("last_activity_description"),
             kpi_outcomes=data.get("kpi_outcomes", {}),
@@ -453,42 +473,38 @@ def format_token_count(tokens: int) -> str:
         return f"~{tokens/1000000:.1f}M"
 
 def get_recent_missions(limit: int = 5) -> List[Dict[str, Any]]:
-    """Get the most recent mission logs with summary information."""
-    mission_files = glob.glob("mission_logs/mission_*.json")
-    
-    # Sort by modification time (most recent first)
-    mission_files.sort(key=os.path.getmtime, reverse=True)
-    
+    """Get the most recent mission logs with summary information from workspaces."""
     recent_missions = []
-    for mission_file in mission_files[:limit]:
-        mission_log = load_mission_log(mission_file)
-        if mission_log:
+    
+    # Try to get missions from workspace system first
+    try:
+        from .core.mission_manager import MissionManager
+        mission_manager = MissionManager()
+        workspace_missions = mission_manager.list_all_missions()
+        
+        for mission in workspace_missions[:limit]:
             # Create a summary for display
             summary = {
-                "file_path": mission_file,
-                "mission_id": mission_log.mission_id,
-                "mission": mission_log.overall_mission,
-                "status": mission_log.final_status,
-                "cycles": mission_log.total_decision_cycles,
-                "cost": mission_log.total_mission_cost,
-                "timestamp": mission_log.timestamp,
-                "last_modified": datetime.fromtimestamp(os.path.getmtime(mission_file)).strftime("%Y-%m-%d %H:%M:%S")
+                "file_path": f"workspace:{mission['workspace_path']}",
+                "mission_id": mission["mission_id"],
+                "mission": mission["overall_mission"],
+                "status": mission["status"],
+                "cycles": mission["cycles_completed"],
+                "cost": mission["total_cost"],
+                "timestamp": mission["started"],
+                "last_modified": mission["last_updated"],
+                "workspace_path": mission["workspace_path"]
             }
             
             # Determine if mission can be resumed
-            resumable_statuses = ["started", "ended_unexpectedly", "CRITICAL_ERROR"]
-            summary["can_resume"] = mission_log.final_status in resumable_statuses
+            resumable_statuses = ["active", "paused", "started", "ended_unexpectedly", "CRITICAL_ERROR"]
+            summary["can_resume"] = mission["status"] in resumable_statuses
             
-            # Get last activity description - prefer the stored description, fallback to decision focus
-            if mission_log.last_activity_description:
-                last_activity = mission_log.last_activity_description
-            elif mission_log.current_decision_focus:
-                last_activity = f"Working on: {mission_log.current_decision_focus}"
-            elif mission_log.decision_cycles_summary:
-                last_cycle = mission_log.decision_cycles_summary[-1]
-                last_activity = last_cycle.get("decision_focus", "Unknown activity")
+            # Get last activity description
+            if mission.get("key_learnings"):
+                last_activity = mission["key_learnings"][-1] if mission["key_learnings"] else "No activity recorded"
             else:
-                last_activity = "No cycles completed"
+                last_activity = f"Mission status: {mission['status']}"
             
             # Truncate long descriptions
             if len(last_activity) > 80:
@@ -496,31 +512,41 @@ def get_recent_missions(limit: int = 5) -> List[Dict[str, Any]]:
             else:
                 summary["last_activity"] = last_activity
             
-            # Add token count
-            summary["total_tokens"] = mission_log.total_input_tokens + mission_log.total_output_tokens
+            # Add token count (estimate from cost if not available)
+            summary["total_tokens"] = int(mission["total_cost"] * 1000) if mission["total_cost"] > 0 else 0
             
             # Add human-friendly last modified time
-            import time
-            file_time = os.path.getmtime(mission_file)
-            now = time.time()
-            diff_seconds = now - file_time
-            
-            if diff_seconds < 60:
-                summary["human_time"] = "just now"
-            elif diff_seconds < 3600:
-                minutes = int(diff_seconds / 60)
-                summary["human_time"] = f"{minutes}m ago"
-            elif diff_seconds < 86400:
-                hours = int(diff_seconds / 3600)
-                summary["human_time"] = f"{hours}h ago"
-            elif diff_seconds < 604800:
-                days = int(diff_seconds / 86400)
-                summary["human_time"] = f"{days}d ago"
-            else:
-                weeks = int(diff_seconds / 604800)
-                summary["human_time"] = f"{weeks}w ago"
+            try:
+                from datetime import datetime
+                last_updated = datetime.fromisoformat(mission["last_updated"].replace('Z', '+00:00'))
+                now = datetime.now(last_updated.tzinfo) if last_updated.tzinfo else datetime.now()
+                diff_seconds = (now - last_updated).total_seconds()
+                
+                if diff_seconds < 60:
+                    summary["human_time"] = "just now"
+                elif diff_seconds < 3600:
+                    minutes = int(diff_seconds / 60)
+                    summary["human_time"] = f"{minutes}m ago"
+                elif diff_seconds < 86400:
+                    hours = int(diff_seconds / 3600)
+                    summary["human_time"] = f"{hours}h ago"
+                elif diff_seconds < 604800:
+                    days = int(diff_seconds / 86400)
+                    summary["human_time"] = f"{days}d ago"
+                else:
+                    weeks = int(diff_seconds / 604800)
+                    summary["human_time"] = f"{weeks}w ago"
+            except:
+                summary["human_time"] = "unknown"
             
             recent_missions.append(summary)
+        
+        if workspace_missions:
+            return recent_missions
+    except Exception as e:
+        logger.warning(f"Could not load missions from workspace system: {e}")
+    
+    # No legacy fallback - only use Mission Workspace System
     
     return recent_missions
 
@@ -604,27 +630,13 @@ async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger
         logger.setLevel(logging.DEBUG)
         agent_logger.console.print("[bold yellow]DEBUG mode enabled.[/bold yellow]")
 
-    # Handle mission resume or create new mission
-    if resume_mission_log:
-        # Resuming existing mission
-        overall_log = resume_mission_log
-        overall_log.final_status = "resumed"  # Update status to indicate resume
-        total_mission_cost = overall_log.total_mission_cost
-        console.print(f"[green]Resuming mission: {overall_log.mission_id}[/green]")
-        console.print(f"[dim]Previous cycles: {overall_log.total_decision_cycles}, Cost: ${total_mission_cost:.4f}, Tokens: {overall_log.total_input_tokens + overall_log.total_output_tokens:,}[/dim]")
-    else:
-        # Generate a unique ID for the overall mission
-        # Clean mission name: lowercase, replace spaces/special chars with underscores, remove extra underscores
-        clean_mission_name = re.sub(r'[^\w\s-]', '', overall_mission_string[:30].lower())
-        clean_mission_name = re.sub(r'[-\s]+', '_', clean_mission_name).strip('_')
-        overall_mission_log_id = f"mission_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{clean_mission_name}"
-        overall_log = OverallMissionLog(
-            mission_id=overall_mission_log_id,
-            timestamp=get_timestamp(),
-            overall_mission=overall_mission_string,
-            final_status="started" 
-        )
-        total_mission_cost = 0.0
+    # Initialize overall_log early to avoid UnboundLocalError in exception handling
+    overall_log = OverallMissionLog(
+        mission_id="unknown",
+        timestamp=datetime.now().isoformat(),
+        overall_mission=overall_mission_string,
+        final_status="initializing"
+    )
 
     try:
         # Initialize the OpenAI client here
@@ -645,11 +657,6 @@ async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger
         
         monitor = MissionMonitor()
         
-        # If resuming, restore token counts to monitor
-        if resume_mission_log:
-            monitor.total_input_tokens = resume_mission_log.total_input_tokens
-            monitor.total_output_tokens = resume_mission_log.total_output_tokens
-        
         # Create enhanced client with AutoGen v0.4 improvements
         enhanced_client = EnhancedOpenAIClient(
             monitor=monitor,
@@ -663,6 +670,46 @@ async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger
         
         orchestrator = create_orchestrator(client=enhanced_client)
         monitor.set_orchestrator(orchestrator)  # Set orchestrator reference for registry access
+        
+        # Create or load mission using orchestrator's MissionManager (with workspace integration)
+        if resume_mission_log:
+            # Convert OverallMissionLog to mission parameters for MissionManager
+            mission_log = orchestrator.create_or_load_mission(
+                mission_name=resume_mission_log.overall_mission,  # Use mission text as name
+                overall_mission=resume_mission_log.overall_mission,
+                resume_existing=True
+            )
+            # Restore token counts to monitor from workspace or resume log
+            monitor.total_input_tokens = resume_mission_log.total_input_tokens
+            monitor.total_output_tokens = resume_mission_log.total_output_tokens
+            console.print(f"[green]Resumed mission: {mission_log.mission_id}[/green]")
+            console.print(f"[cyan]Workspace: {mission_log.workspace_path}[/cyan]")
+        else:
+            # Create new mission with workspace
+            mission_log = orchestrator.create_or_load_mission(
+                mission_name=overall_mission_string,
+                overall_mission=overall_mission_string,
+                resume_existing=False
+            )
+            console.print(f"[green]Created new mission: {mission_log.mission_id}[/green]")
+            console.print(f"[cyan]Workspace: {mission_log.workspace_path}[/cyan]")
+        
+        # Update overall_log with mission data for compatibility with existing CLI code
+        overall_log.mission_id = mission_log.mission_id
+        overall_log.timestamp = mission_log.start_timestamp
+        overall_log.overall_mission = mission_log.overall_mission
+        overall_log.final_status = "started"
+        overall_log.total_mission_cost = mission_log.total_mission_cost
+        overall_log.total_decision_cycles = mission_log.completed_cycles
+        overall_log.total_input_tokens = 0
+        overall_log.total_output_tokens = 0
+        overall_log.decision_cycles_summary = mission_log.cycle_summaries
+        overall_log.created_agents = mission_log.persistent_agents
+        overall_log.current_decision_focus = None
+        overall_log.last_activity_description = None
+        overall_log.kpi_outcomes = {}
+        overall_log.error_message = None
+        overall_log.retrospective_analysis = {}
         
         # Suppress external loggers to prevent UI interference
         suppress_external_loggers()
@@ -1031,8 +1078,9 @@ async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger
         console.print(f"[bold red]Critical error during mission execution:[/bold red] {str(e)}")
         if 'live' in locals() and live.is_started:
             live.stop()
-        overall_log.final_status = "CRITICAL_ERROR"
-        overall_log.error_message = str(e)
+        if 'overall_log' in locals():
+            overall_log.final_status = "CRITICAL_ERROR"
+            overall_log.error_message = str(e)
         sys.exit(1)
     finally:
         # Cancel timer task if it exists
@@ -1049,17 +1097,78 @@ async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger
         # Restore normal logging levels
         restore_external_loggers()
         
-        if overall_log.final_status == "started":
-            overall_log.final_status = "ended_unexpectedly"
+        if 'overall_log' in locals():
+            if overall_log.final_status == "started":
+                overall_log.final_status = "ended_unexpectedly"
 
-        # Final update of context and token counts
-        if 'monitor' in locals():
-            overall_log.total_input_tokens = monitor.total_input_tokens
-            overall_log.total_output_tokens = monitor.total_output_tokens
-        overall_log.created_agents = list(orchestrator.agents.keys()) if 'orchestrator' in locals() else overall_log.created_agents
+            # Final update of context and token counts
+            if 'monitor' in locals():
+                overall_log.total_input_tokens = monitor.total_input_tokens
+                overall_log.total_output_tokens = monitor.total_output_tokens
+            overall_log.created_agents = list(orchestrator.agents.keys()) if 'orchestrator' in locals() else overall_log.created_agents
 
-        overall_log.save_log()
-        console.print(f"Overall mission log saved to mission_logs/{overall_log.mission_id}.json")
+        # Save mission data to workspace (primary storage)
+        if 'orchestrator' in locals() and 'overall_log' in locals() and orchestrator.current_mission_log:
+            try:
+                # Update mission log with final data
+                mission_log = orchestrator.current_mission_log
+                mission_log.total_mission_cost = overall_log.total_mission_cost
+                mission_log.status = overall_log.final_status
+                mission_log.last_updated = datetime.now().isoformat()
+                
+                # Save updated mission log to workspace
+                orchestrator.mission_manager._save_mission_log_to_workspace(mission_log)
+                
+                # Save final mission state to workspace
+                final_state = {
+                    "mission_id": overall_log.mission_id,
+                    "final_status": overall_log.final_status,
+                    "total_cost": overall_log.total_mission_cost,
+                    "total_cycles": overall_log.total_decision_cycles,
+                    "total_tokens": overall_log.total_input_tokens + overall_log.total_output_tokens,
+                    "created_agents": overall_log.created_agents,
+                    "decision_cycles": overall_log.decision_cycles_summary,
+                    "completion_timestamp": datetime.now().isoformat()
+                }
+                
+                orchestrator.mission_manager.save_mission_state_to_workspace(
+                    final_state, 
+                    checkpoint_name="mission_completion"
+                )
+                
+                # Save the overall log as an asset in the workspace
+                orchestrator.mission_manager.save_mission_asset(
+                    "overall_mission_log.json",
+                    overall_log.__dict__,
+                    asset_type="log",
+                    category="logs"
+                )
+                
+                # Get workspace summary for display
+                workspace_summary = orchestrator.mission_manager.get_workspace_summary()
+                
+                console.print(f"\n[bold cyan]📁 Mission Workspace:[/bold cyan] {mission_log.workspace_path}")
+                console.print(f"[cyan]💾 ChromaDB data:[/cyan] {mission_log.workspace_path}/memory/chromadb/")
+                
+                if workspace_summary:
+                    console.print(f"[cyan]📊 Workspace contains:[/cyan]")
+                    console.print(f"   • {workspace_summary.get('total_agents', 0)} agents")
+                    console.print(f"   • {workspace_summary.get('total_tools', 0)} tools") 
+                    console.print(f"   • {workspace_summary.get('total_assets', 0)} assets")
+                    console.print(f"   • {workspace_summary.get('total_logs', 0)} log files")
+                    
+                    # Show recent assets
+                    if workspace_summary.get('recent_assets'):
+                        recent_assets = workspace_summary['recent_assets'][:3]
+                        console.print(f"   Recent assets: {', '.join(recent_assets)}")
+                
+                console.print(f"[green]✅ All mission data saved to workspace successfully[/green]")
+                
+            except Exception as e:
+                logger.error(f"Error saving mission data to workspace: {e}")
+                console.print(f"[red]❌ Error saving mission data to workspace: {e}[/red]")
+        else:
+            console.print(f"[red]❌ No workspace available - mission data could not be saved[/red]")
         
         # Properly close the enhanced client
         if 'enhanced_client' in locals():

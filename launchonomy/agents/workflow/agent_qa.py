@@ -20,24 +20,26 @@ class AgentQA:
     5. Propose certification via consensus if tests pass
     """
     
-    def __init__(self, registry, coa):
+    def __init__(self, registry, orchestrator, mission_context: Optional[Dict[str, Any]] = None):
         """
         Initialize AgentQA.
         
         Args:
             registry: Registry instance for managing agents/tools
-            coa: Consensus Orchestration Authority (OrchestrationAgent)
+            orchestrator: OrchestrationAgent instance
+            mission_context: Mission context including workspace information
         """
         self.registry = registry
-        self.coa = coa
+        self.orchestrator = orchestrator
+        self.mission_context = mission_context or {}
         self.name = "AgentQA"
         
     def _log(self, message: str, level: str = "info"):
         """Helper for logging."""
         log_func = getattr(logger, level, logger.info)
         log_func(f"{self.name}: {message}")
-        if hasattr(self.coa, '_log_to_monitor') and callable(self.coa._log_to_monitor):
-            self.coa._log_to_monitor(self.name, message, level)
+        if hasattr(self.orchestrator, '_log_to_monitor') and callable(self.orchestrator._log_to_monitor):
+            self.orchestrator._log_to_monitor(self.name, message, level)
     
     def execute(self) -> Dict[str, Any]:
         """

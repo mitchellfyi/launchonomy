@@ -14,29 +14,31 @@ class AgentDev:
     Responsibilities:
     1. Monitor registry for "pending" agent stubs
     2. Generate actual agent implementation code based on stub specs
-    3. Create proper Python files under launchonomy/agents/workflow/
+    3. Create proper Python files in mission workspace agents/ directory
     4. Update registry status to "built"
     5. Trigger AgentQA for testing
     """
     
-    def __init__(self, registry, coa):
+    def __init__(self, registry, orchestrator, mission_context: Optional[Dict[str, Any]] = None):
         """
         Initialize AgentDev.
         
         Args:
             registry: Registry instance for managing agents/tools
-            coa: Consensus Orchestration Authority (OrchestrationAgent)
+            orchestrator: OrchestrationAgent instance
+            mission_context: Mission context including workspace information
         """
         self.registry = registry
-        self.coa = coa
+        self.orchestrator = orchestrator
+        self.mission_context = mission_context or {}
         self.name = "AgentDev"
         
     def _log(self, message: str, level: str = "info"):
         """Helper for logging."""
         log_func = getattr(logger, level, logger.info)
         log_func(f"{self.name}: {message}")
-        if hasattr(self.coa, '_log_to_monitor') and callable(self.coa._log_to_monitor):
-            self.coa._log_to_monitor(self.name, message, level)
+        if hasattr(self.orchestrator, '_log_to_monitor') and callable(self.orchestrator._log_to_monitor):
+            self.orchestrator._log_to_monitor(self.name, message, level)
     
     def execute(self) -> Dict[str, Any]:
         """
@@ -113,23 +115,47 @@ class AgentDev:
             Path to the built agent file, or None if failed
         """
         try:
-            # Create agents directory if it doesn't exist
-            agents_dir = Path("launchonomy/agents/workflow")
-            agents_dir.mkdir(parents=True, exist_ok=True)
-            
-            # Generate agent file path
-            agent_filename = f"{agent_name.lower().replace(' ', '_').replace('-', '_')}_agent.py"
-            agent_path = agents_dir / agent_filename
-            
             # Generate agent implementation code
             agent_code = self._generate_agent_code(agent_name, agent_spec)
             
-            # Write agent file
-            with open(agent_path, 'w') as f:
-                f.write(agent_code)
-            
-            self._log(f"Created agent implementation at: {agent_path}", "debug")
-            return str(agent_path)
+            # Save to mission workspace if available
+            workspace_path = self.mission_context.get("workspace_path")
+            if workspace_path and hasattr(self.orchestrator, 'mission_manager'):
+                # Use workspace system
+                success = self.orchestrator.mission_manager.add_agent_to_mission_workspace(
+                    agent_name=agent_name,
+                    agent_spec=agent_spec,
+                    agent_code=agent_code
+                )
+                
+                if success:
+                    # Return workspace-relative path
+                    agent_filename = f"{agent_name.lower().replace(' ', '_').replace('-', '_')}.py"
+                    workspace_relative_path = f"agents/{agent_name}/{agent_filename}"
+                    full_path = os.path.join(workspace_path, workspace_relative_path)
+                    self._log(f"Created agent implementation in workspace: {workspace_relative_path}", "debug")
+                    return full_path
+                else:
+                    self._log(f"Failed to save agent {agent_name} to workspace", "error")
+                    return None
+            else:
+                # Fallback to global directory if no workspace available
+                self._log(f"No workspace available, saving agent {agent_name} to global directory", "warning")
+                
+                # Create agents directory if it doesn't exist
+                agents_dir = Path("launchonomy/agents/workflow")
+                agents_dir.mkdir(parents=True, exist_ok=True)
+                
+                # Generate agent file path
+                agent_filename = f"{agent_name.lower().replace(' ', '_').replace('-', '_')}.py"
+                agent_path = agents_dir / agent_filename
+                
+                # Write agent file
+                with open(agent_path, 'w') as f:
+                    f.write(agent_code)
+                
+                self._log(f"Created agent implementation at: {agent_path}", "debug")
+                return str(agent_path)
             
         except Exception as e:
             self._log(f"Error building agent {agent_name}: {str(e)}", "error")

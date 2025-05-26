@@ -30,8 +30,8 @@ class FinanceAgent(BaseWorkflowAgent):
         "financial_reporting", "tax_calculation"
     ]
     
-    def __init__(self, registry=None, orchestrator=None):
-        super().__init__("FinanceAgent", registry, orchestrator)
+    def __init__(self, registry=None, orchestrator=None, mission_context=None):
+        super().__init__("FinanceAgent", registry, orchestrator, mission_context)
         self.system_prompt = self._build_system_prompt()
         
         # Financial thresholds and limits

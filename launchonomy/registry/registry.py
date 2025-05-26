@@ -126,8 +126,8 @@ class Registry:
                 module = importlib.import_module(module_name)
                 agent_class = getattr(module, class_name)
                 
-                # Instantiate workflow agent with registry and orchestrator
-                agent_instance = agent_class(registry=self, orchestrator=self.orchestrator)
+                # All agents now use consistent constructor parameters
+                agent_instance = agent_class(registry=self, orchestrator=self.orchestrator, mission_context=mission_context)
                 
             else:
                 # Handle other agent types (like C-Suite agents)

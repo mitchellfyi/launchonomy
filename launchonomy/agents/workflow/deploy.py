@@ -13,8 +13,8 @@ class DeployAgent(BaseWorkflowAgent):
     REQUIRED_TOOLS = ["hosting", "domain_registration"]
     OPTIONAL_TOOLS = ["code_generation", "template_library", "payment_processing", "analytics", "email_automation"]
     
-    def __init__(self, registry=None, orchestrator=None):
-        super().__init__("DeployAgent", registry, orchestrator)
+    def __init__(self, registry=None, orchestrator=None, mission_context=None):
+        super().__init__("DeployAgent", registry, orchestrator, mission_context)
         self.system_prompt = self._build_system_prompt()
     
     def _build_system_prompt(self) -> str:

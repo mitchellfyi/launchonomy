@@ -14,29 +14,31 @@ class ToolDev:
     Responsibilities:
     1. Monitor registry for "pending" tool stubs
     2. Generate actual tool implementation code based on stub specs
-    3. Create proper Python files under launchonomy/tools/
+    3. Create proper Python files in mission workspace tools/ directory
     4. Update registry status to "built"
     5. Trigger ToolQA for testing
     """
     
-    def __init__(self, registry, coa):
+    def __init__(self, registry, orchestrator, mission_context: Optional[Dict[str, Any]] = None):
         """
         Initialize ToolDev.
         
         Args:
             registry: Registry instance for managing agents/tools
             coa: Consensus Orchestration Authority (OrchestrationAgent)
+            mission_context: Mission context including workspace information
         """
         self.registry = registry
-        self.coa = coa
+        self.orchestrator = orchestrator
+        self.mission_context = mission_context or {}
         self.name = "ToolDev"
         
     def _log(self, message: str, level: str = "info"):
         """Helper for logging."""
         log_func = getattr(logger, level, logger.info)
         log_func(f"{self.name}: {message}")
-        if hasattr(self.coa, '_log_to_monitor') and callable(self.coa._log_to_monitor):
-            self.coa._log_to_monitor(self.name, message, level)
+        if hasattr(self.orchestrator, '_log_to_monitor') and callable(self.orchestrator._log_to_monitor):
+            self.orchestrator._log_to_monitor(self.name, message, level)
     
     def execute(self) -> Dict[str, Any]:
         """
@@ -113,23 +115,47 @@ class ToolDev:
             Path to the built tool file, or None if failed
         """
         try:
-            # Create tools directory if it doesn't exist
-            tools_dir = Path("launchonomy/tools")
-            tools_dir.mkdir(parents=True, exist_ok=True)
-            
-            # Generate tool file path
-            tool_filename = f"{tool_name.lower().replace(' ', '_').replace('-', '_')}_tool.py"
-            tool_path = tools_dir / tool_filename
-            
             # Generate tool implementation code
             tool_code = self._generate_tool_code(tool_name, tool_spec)
             
-            # Write tool file
-            with open(tool_path, 'w') as f:
-                f.write(tool_code)
-            
-            self._log(f"Created tool implementation at: {tool_path}", "debug")
-            return str(tool_path)
+            # Save to mission workspace if available
+            workspace_path = self.mission_context.get("workspace_path")
+            if workspace_path and hasattr(self.orchestrator, 'mission_manager'):
+                # Use workspace system
+                success = self.orchestrator.mission_manager.add_tool_to_mission_workspace(
+                    tool_name=tool_name,
+                    tool_spec=tool_spec,
+                    tool_code=tool_code
+                )
+                
+                if success:
+                    # Return workspace-relative path
+                    tool_filename = f"{tool_name.lower().replace(' ', '_').replace('-', '_')}.py"
+                    workspace_relative_path = f"tools/{tool_name}/{tool_filename}"
+                    full_path = os.path.join(workspace_path, workspace_relative_path)
+                    self._log(f"Created tool implementation in workspace: {workspace_relative_path}", "debug")
+                    return full_path
+                else:
+                    self._log(f"Failed to save tool {tool_name} to workspace", "error")
+                    return None
+            else:
+                # Fallback to global directory if no workspace available
+                self._log(f"No workspace available, saving tool {tool_name} to global directory", "warning")
+                
+                # Create tools directory if it doesn't exist
+                tools_dir = Path("launchonomy/tools")
+                tools_dir.mkdir(parents=True, exist_ok=True)
+                
+                # Generate tool file path
+                tool_filename = f"{tool_name.lower().replace(' ', '_').replace('-', '_')}_tool.py"
+                tool_path = tools_dir / tool_filename
+                
+                # Write tool file
+                with open(tool_path, 'w') as f:
+                    f.write(tool_code)
+                
+                self._log(f"Created tool implementation at: {tool_path}", "debug")
+                return str(tool_path)
             
         except Exception as e:
             self._log(f"Error building tool {tool_name}: {str(e)}", "error")
@@ -387,9 +413,9 @@ class {class_name}:
     def _trigger_tool_qa(self):
         """Trigger ToolQA to test newly built tools."""
         try:
-            if hasattr(self.coa, 'enqueue_task'):
-                self.coa.enqueue_task("ToolQA")
+            if hasattr(self.orchestrator, 'enqueue_task'):
+                self.orchestrator.enqueue_task("ToolQA")
             else:
-                self._log("COA does not support task queuing, ToolQA will run on next cycle", "warning")
+                self._log("Orchestrator does not support task queuing, ToolQA will run on next cycle", "warning")
         except Exception as e:
             self._log(f"Error triggering ToolQA: {str(e)}", "error") 

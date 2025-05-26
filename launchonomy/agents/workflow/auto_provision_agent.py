@@ -3,7 +3,7 @@ from typing import Dict, Any, Optional, List
 
 # Assuming Registry is in orchestrator.registry
 # from orchestrator.registry import Registry 
-# Assuming OrchestratorAgent (COA) will be passed and has propose_and_vote
+# Assuming OrchestratorAgent will be passed and has agent creation capabilities
 # from orchestrator.orchestrator_agent import OrchestratorAgent 
 
 logger = logging.getLogger(__name__)
@@ -14,24 +14,25 @@ class AutoProvisionAgent:
     "trivial" criteria, then auto-proposes the minimal agent or tool
     to handle it, submits it to consensus, and—if accepted—installs it.
     """
-    def __init__(self, registry, coa): # Type hints will be added once COA structure is clear
+    def __init__(self, registry, orchestrator, mission_context: Optional[Dict[str, Any]] = None): # Type hints will be added once orchestrator structure is clear
         """
         Initializes the AutoProvisionAgent.
         :param registry: An instance of the Registry class.
-        :param coa: The Consensus Orchestration Authority (likely OrchestratorAgent) 
-                    which has a method like propose_and_vote(proposal, voters).
+        :param orchestrator: The orchestrator agent that manages the mission
+        :param mission_context: Mission context information
         """
         self.registry = registry
-        self.coa = coa
+        self.orchestrator = orchestrator
+        self.mission_context = mission_context or {}
         self.name = "AutoProvisionAgent" # For logging and identification
 
     def _log(self, message: str, level: str = "info"):
-        # Helper for logging, assuming coa might have a more complex logger setup
+        # Helper for logging, assuming orchestrator might have a more complex logger setup
         log_func = getattr(logger, level, logger.info)
         log_func(f"{self.name}: {message}")
-        if hasattr(self.coa, '_log_to_monitor') and callable(self.coa._log_to_monitor):
-             # If COA has a way to log to the main UI monitor
-            self.coa._log_to_monitor(self.name, message, level)
+        if hasattr(self.orchestrator, '_log') and callable(self.orchestrator._log):
+             # If orchestrator has a way to log to the main UI monitor
+            self.orchestrator._log(message, level)
 
 
     def is_trivial(self, context: Dict, missing_item_details: Dict) -> bool:
@@ -355,14 +356,14 @@ Return only valid JSON in this format:
                 self._log(f"Successfully auto-provisioned {item_type} '{item_name}' and updated registry.", "info")
                 
                 # For agents, also create the actual RoutedAgent instance
-                if item_type == "agent" and hasattr(self.coa, '_create_agent'):
+                if item_type == "agent" and hasattr(self.orchestrator, '_create_agent'):
                     try:
                         agent_spec = real_spec
                         persona = agent_spec.get("description", f"Auto-provisioned agent for {item_name}")
                         primer = f"You are {item_name}. {persona}\nYour capabilities include: {', '.join(agent_spec.get('capabilities', []))}"
                         
                         # Create the actual agent instance
-                        agent_instance = await self.coa._create_agent(item_name, persona, primer)
+                        agent_instance = await self.orchestrator._create_agent(item_name, persona, primer)
                         self._log(f"Created actual agent instance for '{item_name}'.", "info")
                         
                     except Exception as e:

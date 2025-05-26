@@ -81,7 +81,7 @@ class OrchestrationAgent(RoutedAgent):
         self.agent_manager.load_registered_agents()
         
         # Ensure AutoProvisionAgent is initialized correctly
-        self.auto_provision_agent = AutoProvisionAgent(registry=self.registry, coa=self)
+        self.auto_provision_agent = AutoProvisionAgent(registry=self.registry, orchestrator=self, mission_context={})
         
         # Add self and AutoProvisionAgent to registry if not already there
         if not self.registry.get_agent_spec(self.name):
@@ -145,8 +145,19 @@ class OrchestrationAgent(RoutedAgent):
             # Generate or use existing mission ID
             self.current_mission_id = mission_id
             
+            # Get workspace path for ChromaDB storage if available
+            chromadb_base_dir = None
+            if self.current_mission_log and self.current_mission_log.workspace_path:
+                # Store ChromaDB in the mission workspace
+                chromadb_base_dir = os.path.join(self.current_mission_log.workspace_path, "memory", "chromadb")
+                self._log(f"Using workspace directory for ChromaDB: {chromadb_base_dir}", "info")
+            else:
+                # Fallback to default directory
+                chromadb_base_dir = os.path.expanduser("~/.chromadb_launchonomy")
+                self._log(f"Using default directory for ChromaDB: {chromadb_base_dir}", "info")
+            
             # Create mission-specific memory store
-            self.mission_memory = create_mission_memory(mission_id)
+            self.mission_memory = create_mission_memory(mission_id, chromadb_base_dir)
             
             # Initialize memory helper
             self.memory_helper = MemoryHelper(self.mission_memory, mission_id)
@@ -232,7 +243,7 @@ class OrchestrationAgent(RoutedAgent):
         
         overall_mission = mission_context.get("overall_mission", "No overall mission specified.")
         cycle_start_time = datetime.now()
-        mission_id = f"cycle_{cycle_start_time.strftime('%Y%m%d_%H%M%S')}_{re.sub(r'\W+','_',current_decision_focus[:20])}"
+        mission_id = f"{cycle_start_time.strftime('%Y%m%d_%H%M%S')}_cycle_{re.sub(r'\W+','_',current_decision_focus[:20])}"
         
         # Initialize CycleLog for this cycle
         mission_log = CycleLog(
@@ -314,16 +325,12 @@ class OrchestrationAgent(RoutedAgent):
 
         self._log(f"Decision cycle for '{current_decision_focus[:50]}...' finished. Total cycle cost: {mission_log.total_cycle_cost:.4f}, Duration: {mission_log.cycle_duration_minutes:.2f} minutes", "info")
 
-        # Archive the full cycle log
-        log_dir = "mission_logs"
-        os.makedirs(log_dir, exist_ok=True)
-        log_file_path = os.path.join(log_dir, f"{mission_log.mission_id}.json")
-        try:
-            with open(log_file_path, "w") as f:
-                json.dump(asdict(mission_log), f, indent=2)
-            self._log(f"Full mission cycle log archived to {log_file_path}", "info")
-        except (IOError, OSError, PermissionError, json.JSONEncodeError) as e:
-            self._log(f"Error archiving final mission log {log_file_path}: {str(e)}", "error")
+        # Save cycle log to workspace using Mission Workspace System
+        success = self.mission_manager.save_cycle_log_to_workspace(mission_log)
+        if success:
+            self._log(f"Cycle log saved to workspace successfully", "info")
+        else:
+            self._log(f"Failed to save cycle log to workspace", "warning")
         
         # Update the master mission log with this cycle's information
         self.mission_manager.update_mission_log(mission_log)
@@ -338,7 +345,7 @@ class OrchestrationAgent(RoutedAgent):
             "final_reviews_summary": final_reviews_summary,
             "total_loops_in_decision": mission_log.total_loops_in_decision_cycle,
             "total_cycle_cost": mission_log.total_cycle_cost,
-            "mission_log_path": log_file_path 
+            "workspace_path": self.current_mission_log.workspace_path if self.current_mission_log else None
         }
 
     async def run_continuous_launch_growth_loop(self, mission_context: Dict[str, Any], max_iterations: int = 100) -> Dict[str, Any]:
@@ -819,10 +826,32 @@ class OrchestrationAgent(RoutedAgent):
             analysis_prompt = f"Analyze this mission log: {json.dumps(asdict(mission_log), default=str)[:1000]}..."
             analysis, cost = await self._ask_agent(retro_agent, analysis_prompt)
             
-            # Save retrospective
-            retro_file = f"mission_logs/{mission_log.mission_id}_retro.txt"
-            with open(retro_file, "w") as f:
-                f.write(analysis)
+            # Save retrospective to workspace
+            if self.current_mission_log and self.current_mission_log.workspace_path:
+                # Save to workspace docs/generated directory
+                docs_dir = os.path.join(self.current_mission_log.workspace_path, "docs", "generated")
+                os.makedirs(docs_dir, exist_ok=True)
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                retro_file = os.path.join(docs_dir, f"{timestamp}_retrospective_analysis.txt")
+                with open(retro_file, "w") as f:
+                    f.write(analysis)
+                
+                # Also save as an asset
+                self.mission_manager.save_mission_asset(
+                    asset_name=f"{timestamp}_retrospective_analysis.txt",
+                    asset_data=analysis,
+                    asset_type="retrospective",
+                    category="docs"
+                )
+            else:
+                # Save to workspace docs/generated directory
+                if hasattr(mission_log, 'workspace_path') and mission_log.workspace_path:
+                    retro_file = f"{mission_log.workspace_path}/docs/generated/{mission_log.mission_id}_retro.txt"
+                    os.makedirs(os.path.dirname(retro_file), exist_ok=True)
+                    with open(retro_file, "w") as f:
+                        f.write(analysis)
+                else:
+                    self._log("Warning: No workspace available for retrospective analysis", "warning")
             
             return cost
         except Exception as e:
