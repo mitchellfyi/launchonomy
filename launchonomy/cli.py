@@ -32,7 +32,7 @@ from .utils.logging import OverallMissionLog, get_timestamp
 from .utils.cost_calculator import calculate_cycle_cost
 import re
 
-load_dotenv()
+# Note: load_dotenv() is called in main() to ensure it runs from user's working directory
 
 # Configure rich console
 console = Console()
@@ -631,7 +631,13 @@ async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger
         api_key = os.environ.get("OPENAI_API_KEY")
         if not api_key:
             logger.critical("OPENAI_API_KEY environment variable not set.")
-            rprint("[bold red]Error: OPENAI_API_KEY environment variable not set. Please set it in your .env file or system environment.[/bold red]")
+            rprint("[bold red]Error: OPENAI_API_KEY environment variable not set.[/bold red]")
+            rprint("\n[yellow]To fix this, you can either:[/yellow]")
+            rprint("1. Create a .env file in your current directory with:")
+            rprint("   [cyan]OPENAI_API_KEY=your-api-key-here[/cyan]")
+            rprint("2. Set it as an environment variable:")
+            rprint("   [cyan]export OPENAI_API_KEY=your-api-key-here[/cyan]")
+            rprint(f"\n[dim]Current working directory: {os.getcwd()}[/dim]")
             return
 
         model_name = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
@@ -1047,8 +1053,9 @@ async def run_mission_cli(overall_mission_string: str, agent_logger: AgentLogger
             overall_log.final_status = "ended_unexpectedly"
 
         # Final update of context and token counts
-        overall_log.total_input_tokens = monitor.total_input_tokens
-        overall_log.total_output_tokens = monitor.total_output_tokens
+        if 'monitor' in locals():
+            overall_log.total_input_tokens = monitor.total_input_tokens
+            overall_log.total_output_tokens = monitor.total_output_tokens
         overall_log.created_agents = list(orchestrator.agents.keys()) if 'orchestrator' in locals() else overall_log.created_agents
 
         overall_log.save_log()
@@ -1090,6 +1097,23 @@ def main(mission: Optional[str] = None, debug: bool = False, new: bool = False, 
     python orchestrator/cli.py --new              # Force new mission
     python orchestrator/cli.py "Build an app"     # New mission with description
     """
+    # Load environment variables from .env file in current working directory
+    # This ensures the .env file is loaded from where the user runs the command
+    import os
+    current_dir = os.getcwd()
+    env_file_path = os.path.join(current_dir, '.env')
+    
+    if debug:
+        console.print(f"[dim]Debug: Looking for .env file at: {env_file_path}[/dim]")
+        console.print(f"[dim]Debug: .env file exists: {os.path.exists(env_file_path)}[/dim]")
+    
+    # Load .env file if it exists, otherwise load_dotenv will just do nothing
+    load_dotenv(dotenv_path=env_file_path)
+    
+    if debug:
+        api_key_found = bool(os.environ.get("OPENAI_API_KEY"))
+        console.print(f"[dim]Debug: OPENAI_API_KEY found after load_dotenv: {api_key_found}[/dim]")
+    
     resume_mission_log = None
     
     # Show mission selection menu unless --new flag is used

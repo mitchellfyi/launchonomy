@@ -1,6 +1,5 @@
-# Mission logs and environment
+# Mission logs
 mission_logs/
-.env
 
 # Python
 __pycache__/
