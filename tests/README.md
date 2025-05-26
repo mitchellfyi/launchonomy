@@ -37,6 +37,19 @@ Tests the auto-provisioning functionality for tools and agents.
 - **Run**: `python tests/test_auto_provision.py`
 - **Requirements**: OPENAI_API_KEY environment variable
 
+#### `test_memory_integration.py`
+Tests the mission-scoped RAG memory system integration.
+- **Purpose**: Validates the ChromaDB vector memory system and RetrievalAgent functionality
+- **Features Tested**:
+  - ChromaDB vector memory creation and storage
+  - Memory logging functionality across workflow steps
+  - RetrievalAgent semantic search capabilities
+  - Integration with the orchestrator system
+  - Context-aware agent decision making
+  - Cross-mission learning and pattern recognition
+- **Run**: `python tests/test_memory_integration.py`
+- **Requirements**: ChromaDB (automatically installed with requirements)
+
 ### Workflow and Integration Tests
 
 #### `test_continuous_loop.py`
@@ -121,6 +134,7 @@ From the project root directory:
 python tests/test_agent_loading.py
 python tests/test_mission_linking.py
 python tests/test_auto_provision.py
+python tests/test_memory_integration.py
 
 # Workflow tests
 python tests/test_continuous_loop.py
@@ -138,6 +152,7 @@ To run all tests that don't require API keys:
 ```bash
 python tests/test_agent_loading.py
 python tests/test_mission_linking.py
+python tests/test_memory_integration.py
 python tests/test_continuous_loop_mock.py
 python tests/test_workflow_agents_registration.py
 python tests/test_repl_demo.py
@@ -157,6 +172,7 @@ done
 ### 🟢 No API Key Required
 - `test_agent_loading.py`
 - `test_mission_linking.py`
+- `test_memory_integration.py`
 - `test_continuous_loop_mock.py`
 - `test_workflow_agents_registration.py`
 - `test_repl_demo.py`
