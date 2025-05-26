@@ -2,7 +2,9 @@
 
 A comprehensive system for orchestrating AI agents to build and grow autonomous businesses through C-Suite strategic decision-making and workflow automation.
 
-![]|(https://github.com/mitchellfyi/launchonomy/blob/main/docs/screenshot-agents.png?raw=true)
+<p align="center">
+  <img src="./docs/screenshot-agents.png" width="800">
+</p>
 
 ## 🤖 Built With AI
 
@@ -219,7 +221,9 @@ launchonomy/
 
 Launchonomy automatically detects resumable missions and presents a menu:
 
-![](https://github.com/mitchellfyi/launchonomy/blob/main/docs/screenshot-missions.png?raw=true)
+<p align="center">
+  <img src="./docs/screenshot-missions.png" width="800">
+</p>
 
 ### Mission Log Analysis
 
