@@ -406,8 +406,8 @@ python -c "import autogen; print(f'AutoGen version: {autogen.__version__}')"
 
 # Solution
 # Ensure AutoGen v0.4+ is installed
-pip install "pyautogen>=0.4.0"
-pip install --upgrade pyautogen
+pip install "ag2>=0.4.0"
+pip install --upgrade ag2
 
 # Verify installation
 python -c "
@@ -652,7 +652,7 @@ def collect_diagnostic_info():
         "packages": {
             pkg.project_name: pkg.version 
             for pkg in pkg_resources.working_set
-            if pkg.project_name in ['pyautogen', 'openai', 'aiohttp']
+            if pkg.project_name in ['ag2', 'openai', 'aiohttp']
         },
         "environment": {
             "openai_api_key_set": bool(os.getenv('OPENAI_API_KEY')),
