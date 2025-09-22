@@ -69,6 +69,52 @@ Or test the CLI directly:
 launchonomy --help
 ```
 
+## 🎯 5-Minute Getting Started Tutorial
+
+### Step 1: Launch Your First Mission
+
+```bash
+# Start with a simple mission
+launchonomy --new "Build a simple task management app"
+```
+
+### Step 2: Watch the C-Suite Planning
+
+Launchonomy will automatically:
+- Analyze your mission requirements
+- Create a strategic plan with C-Suite agents
+- Set up workflow agents for execution
+- Begin market research and development
+
+### Step 3: Monitor Progress
+
+The system provides real-time updates on:
+- Agent activities and decisions
+- Financial metrics and costs
+- Progress toward objectives
+- Generated assets and code
+
+### Step 4: Review Results
+
+After completion:
+- View comprehensive mission reports
+- Analyze generated business assets
+- Review agent decision logs
+- Extract learnings for future missions
+
+### Step 5: Explore Advanced Features
+
+```bash
+# List your mission workspaces
+python -m launchonomy.cli_workspace list
+
+# Resume a previous mission
+launchonomy  # Select from menu
+
+# Run with custom parameters
+launchonomy --max-iterations 20 --debug "Advanced mission"
+```
+
 ### Running Launchonomy
 
 #### Option 1: Using the installed command (after pip install)
@@ -96,6 +142,73 @@ python main.py
 python -m launchonomy.cli
 ```
 
+## 📱 Usage Examples & Screenshots
+
+### Mission Selection Interface
+
+When you start Launchonomy, you'll see an intelligent mission resume interface:
+
+<p>
+  <img src="./docs/screenshot-startup-flow.png" width="700">
+</p>
+
+**Features shown:**
+- Resume previous missions with detailed status
+- Mission metadata (cycles completed, tokens used, last activity)
+- Smart sorting by most recent activity
+- Clean options for starting new missions
+
+### Command Line Options
+
+Get detailed help and options:
+
+```bash
+$ launchonomy --help
+Usage: main.py [OPTIONS] [MISSION]
+
+  Run an autonomous business mission with C-Suite orchestration and workflow
+  automation.
+
+Options:
+  --debug                   Enable DEBUG level logging.
+  --new                     Force start a new mission (skip resume menu).
+  --max-iterations INTEGER  Maximum iterations for continuous mode (default: 10).
+  --help                    Show this message and exit.
+```
+
+### Starting a New Mission
+
+Skip the resume menu and start directly:
+
+```bash
+$ launchonomy --new "Build a profitable SaaS for task automation"
+```
+
+<p>
+  <img src="./docs/screenshot-new-mission.png" width="700">
+</p>
+
+**Key features:**
+- Automatic mission initialization and workspace creation
+- C-Suite strategic planning team setup
+- Real-time configuration display
+- Budget and memory system activation
+
+### Real-Time Mission Monitoring
+
+During execution, you'll see a live monitoring interface with detailed agent activity:
+
+<p>
+  <img src="./docs/screenshot-agents.png" width="700">
+</p>
+
+**Live monitoring features:**
+- Real-time agent activity updates
+- Token usage and cost tracking
+- Cycle progress indicators
+- Strategic decision insights
+- Revenue and growth metrics
+
 ### Workspace Management
 
 Manage mission workspaces with the dedicated CLI:
@@ -117,6 +230,19 @@ python -m launchonomy.cli_workspace status
 python -m launchonomy.cli_workspace archive MISSION_ID
 ```
 
+**Example workspace listing:**
+
+<p>
+  <img src="./docs/screenshot-workspace-list.png" width="700">
+</p>
+
+**Features:**
+- Comprehensive mission tracking with IDs and metadata
+- Status monitoring (active, completed, failed, archived)
+- Asset and resource management per mission
+- Tag-based organization and filtering
+- Automatic timestamping and organization
+
 ## 🎯 How It Works
 
 <p>
@@ -131,6 +257,57 @@ Launchonomy implements a unique **C-Suite orchestrated** approach where:
 2. **Workflow Execution**: Specialized workflow agents execute operational tasks
 3. **Strategic Review**: C-Suite agents review results and adjust strategy
 4. **Continuous Iteration**: The cycle repeats until mission objectives are achieved
+
+### Example Mission Flow
+
+Here's how a typical mission progresses:
+
+```
+🎯 Mission: "Build a profitable SaaS application"
+
+🏢 C-Suite Planning Phase:
+├── CEO: Defines vision and success metrics
+├── CRO: Identifies target market and revenue model  
+├── CTO: Plans technical architecture and deployment
+└── CFO: Sets budget constraints and financial goals
+
+⚙️  Workflow Execution Phase:
+├── ScanAgent: "Identified AI productivity tools market gap"
+├── DeployAgent: "Built MVP task automation platform"
+├── CampaignAgent: "Launched targeted marketing to SMBs"
+├── AnalyticsAgent: "Tracking 150 signups, 12% conversion"
+├── FinanceAgent: "Revenue: $2,400/mo, Costs: $800/mo"
+└── GrowthAgent: "Optimizing onboarding, +25% retention"
+
+🔄 Strategic Review:
+└── "Success! Scaling marketing spend and adding features"
+```
+
+### Real-World Mission Examples
+
+**Example 1: AI Newsletter Service**
+```bash
+$ launchonomy "Create an AI-powered newsletter service"
+
+🎯 Mission automatically discovers:
+├── Market research: Newsletter automation demand
+├── MVP deployment: AI content generation platform
+├── Marketing: Content creator partnerships
+├── Analytics: 500 subscribers in first month
+└── Revenue: $1,200 MRR within 60 days
+```
+
+**Example 2: E-commerce Automation**
+```bash
+$ launchonomy --new "Build dropshipping automation tools"
+
+🎯 Mission progression:
+├── Market scan: Identifies Shopify app opportunity
+├── Development: Creates inventory management tool
+├── Launch: App store deployment and SEO
+├── Growth: 50+ store integrations in first quarter
+└── Outcome: $5K+ monthly recurring revenue
+```
 
 ### Workflow Agent Sequence
 
@@ -309,6 +486,56 @@ The ChromaDB vector memory system automatically creates mission-specific collect
 - `--debug` - Enable detailed debug logging
 - `--new` - Skip resume menu and force new mission
 - `--max-iterations N` - Maximum iterations for continuous mode (default: 10)
+
+### Advanced Configuration Examples
+
+**Custom model and increased iterations:**
+```bash
+export OPENAI_MODEL=gpt-4o
+launchonomy --max-iterations 20 "Build enterprise SaaS platform"
+```
+
+**Debug mode for troubleshooting:**
+```bash
+launchonomy --debug --new "Test mission for debugging"
+```
+
+**Environment file configuration:**
+```bash
+# Create .env file in your working directory
+echo "OPENAI_API_KEY=your-key-here" > .env
+echo "OPENAI_MODEL=gpt-4o-mini" >> .env
+launchonomy
+```
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+**API Key Not Set:**
+```
+Error: OPENAI_API_KEY environment variable not set.
+```
+**Solution:** Set your API key as shown in the configuration section above.
+
+**No Resumable Missions:**
+```
+No resumable missions found. Starting new mission...
+```
+**Solution:** This is normal for first-time users. Previous missions will appear here after completion.
+
+**Workspace Errors:**
+```
+❌ No workspace available - mission data could not be saved
+```
+**Solution:** Ensure you have write permissions in the current directory and sufficient disk space.
+
+### Getting Help
+
+- Check the [Troubleshooting Guide](docs/TROUBLESHOOTING.md) for detailed solutions
+- Review [Development Guide](docs/DEVELOPMENT_GUIDE.md) for advanced configuration
+- Use `--debug` flag to see detailed execution logs
+- Check workspace status with `python -m launchonomy.cli_workspace status`
 
 ## 🧪 Development
 
