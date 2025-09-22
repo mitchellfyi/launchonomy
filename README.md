@@ -149,7 +149,7 @@ python -m launchonomy.cli
 When you start Launchonomy, you'll see an intelligent mission resume interface:
 
 <p>
-  <img src="./docs/screenshot-missions.png" width="700">
+  <img src="./docs/screenshot-startup-flow.png" width="700">
 </p>
 
 **Features shown:**
@@ -184,25 +184,15 @@ Skip the resume menu and start directly:
 $ launchonomy --new "Build a profitable SaaS for task automation"
 ```
 
-```
-Enter the overall business mission: Build a profitable SaaS for task automation
+<p>
+  <img src="./docs/screenshot-new-mission.png" width="700">
+</p>
 
-🎯 Initializing C-Suite Orchestrated Mission...
-📋 Mission: Build a profitable SaaS for task automation
-🏢 Creating strategic planning team...
-⚙️  Preparing workflow agents...
-
-┌─ Mission Configuration ────────────────────────────────────────┐
-│ Mission ID: 20240922_151030_mission_build_profitable_saas      │
-│ Mode: C-Suite Orchestrated                                     │
-│ Max Iterations: 10                                             │
-│ Budget Constraints: Enabled                                    │
-│ Memory System: Active                                          │
-└────────────────────────────────────────────────────────────────┘
-
-🚀 Mission workspace created: .launchonomy/20240922_151030_mission_build_profitable_saas/
-💾 Starting strategic planning phase...
-```
+**Key features:**
+- Automatic mission initialization and workspace creation
+- C-Suite strategic planning team setup
+- Real-time configuration display
+- Budget and memory system activation
 
 ### Real-Time Mission Monitoring
 
@@ -242,19 +232,9 @@ python -m launchonomy.cli_workspace archive MISSION_ID
 
 **Example workspace listing:**
 
-```
-$ python -m launchonomy.cli_workspace list
-
-Mission Workspaces (2 found)                                              
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┳━━━━━━━━┓
-┃ Mission ID                        ┃ Name             ┃ Status          ┃ Created          ┃ Tags            ┃ Assets ┃
-┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━╇━━━━━━━━┩
-│ 20240920_091500_mission_ai_new... │ AI Newsletter    │ ended_unexpect… │ 2024-09-20 09:15 │ ai,             │ N/A    │
-│                                   │ Service          │                 │                  │ newsletter...   │        │
-│ 20240915_143022_mission_build_... │ Build Uber for   │ ended_unexpect… │ 2024-09-15 14:30 │ demo, pet-tech  │ N/A    │
-│                                   │ dogs             │                 │                  │                 │        │
-└───────────────────────────────────┴──────────────────┴─────────────────┴──────────────────┴─────────────────┴────────┘
-```
+<p>
+  <img src="./docs/screenshot-workspace-list.png" width="700">
+</p>
 
 **Features:**
 - Comprehensive mission tracking with IDs and metadata
